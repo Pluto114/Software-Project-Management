@@ -1,6 +1,25 @@
 {
   "name": "@aquaintelligence/realtime-hub",
   "version": "0.1.0",
-  "description": "实时枢纽 — WebSocket 长连接管理、二进制帧解析、实时数据推送、50k msg/s 吞吐",
-  "main": "dist/main.js"
+  "description": "实时枢纽 — WebSocket 长连接管理、二进制帧解析、实时数据推送",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "jsonwebtoken": "^9.0.2",
+    "ioredis": "^5.4.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "@types/ws": "^8.5.10",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/uuid": "^9.0.8",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
 }

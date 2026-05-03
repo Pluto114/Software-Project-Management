@@ -1,19 +1,26 @@
 /**
- * 实时枢纽入口
+ * realtime-hub — AquaIntelligence 实时数据枢纽
  *
- * 职责（需求文档 2.4 & 3.1）：
- * 1. WebSocket 长连接管理（网关 + 前端客户端）
- * 2. 解析私有二进制帧（0xAA 0x55 帧头对齐）
- * 3. 消息路由：实时数据 -> telemetry-service, 控制指令 -> control-service
- * 4. 性能目标：单集群 10,000 并发连接，50,000 msg/s 吞吐
- *
- * 延迟预算分配（需求文档 4.1.1）：
- * - 网络传输 (WebSocket): <= 50ms
- * - 云端逻辑与分发: <= 70ms
+ * 启动: npm run dev   (tsx watch, port 3001)
+ *        npm run build && npm start
  */
 
-// TODO: 初始化 Netty/WS 服务器（TLS 1.3）
-// TODO: 实现二进制帧解析器（帧头检测 + 帧长校验 + HMAC 验证）
-// TODO: 实现连接管理器（心跳监测 10s 间隔，断连清理）
-// TODO: 实现消息路由总线（按 payload type 分发）
-// TODO: 实现背压控制（入站消息限流，防止 OOM）
+import { WebSocketGateway } from './gateway/websocket.gateway'
+
+const PORT = parseInt(process.env.PORT || '3001', 10)
+
+async function main() {
+  const gateway = new WebSocketGateway()
+  gateway.start(PORT)
+
+  const shutdown = async (signal: string) => {
+    console.log(`\n[realtime-hub] received ${signal}, shutting down...`)
+    await gateway.stop()
+    process.exit(0)
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+}
+
+main()

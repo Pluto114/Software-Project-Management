@@ -1,0 +1,89 @@
+version: "3.8"
+
+# AquaIntelligence 本地开发环境
+# 一键启动: docker compose -f docker-compose.dev.yml up -d
+# 停止:     docker compose -f docker-compose.dev.yml down -v
+
+services:
+  # ============================================
+  # MySQL 8.0 — 业务数据库
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    container_name: aqua-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: aqua_dev_2024
+      MYSQL_DATABASE: aqua_intelligence
+      MYSQL_USER: aqua
+      MYSQL_PASSWORD: aqua_dev_2024
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infra/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-paqua_dev_2024"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aqua-dev
+
+  # ============================================
+  # Redis 7 — 消息队列 / Pub-Sub / 缓存
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: aqua-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aqua-dev
+
+  # ============================================
+  # InfluxDB 2.x — 时序数据库 (传感器遥测)
+  # ============================================
+  influxdb:
+    image: influxdb:2.7
+    container_name: aqua-influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: aqua
+      DOCKER_INFLUXDB_INIT_PASSWORD: aqua_dev_2024
+      DOCKER_INFLUXDB_INIT_ORG: aqua-intelligence
+      DOCKER_INFLUXDB_INIT_BUCKET: sensor_telemetry
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: aqua_dev_token_2024
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aqua-dev
+
+volumes:
+  mysql_data:
+  redis_data:
+  influxdb_data:
+  influxdb_config:
+
+networks:
+  aqua-dev:
+    name: aqua-dev
+    driver: bridge
