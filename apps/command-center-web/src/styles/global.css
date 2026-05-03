@@ -1,0 +1,166 @@
+/* ============================================================
+   AquaIntelligence - "深邃工业 Deep-Sea Industrial" 设计语言
+   背景: #0A0A0B  数据流: #00F2FF  警示: #FF8C00  危险: #FF4444
+   ============================================================ */
+
+:root {
+  --bg-primary: #0A0A0B;
+  --bg-secondary: #111316;
+  --bg-panel: #16191E;
+  --bg-card: #1A1D24;
+  --border-color: #1E2229;
+  --border-active: #2A3040;
+  --text-primary: #E8EAED;
+  --text-secondary: #8B909A;
+  --text-dim: #555A62;
+  --accent-blue: #00F2FF;
+  --accent-blue-dim: rgba(0, 242, 255, 0.12);
+  --accent-orange: #FF8C00;
+  --accent-orange-dim: rgba(255, 140, 0, 0.15);
+  --accent-red: #FF4444;
+  --accent-green: #00E676;
+  --accent-yellow: #FFD600;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-active); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* 面板通用样式 */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* 数据高亮 */
+.data-value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  line-height: 1;
+}
+
+.data-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.data-unit {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* 状态指示灯 */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-dot.green  { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.status-dot.yellow { background: var(--accent-yellow); box-shadow: 0 0 6px var(--accent-yellow); }
+.status-dot.red    { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
+.status-dot.blue   { background: var(--accent-blue); box-shadow: 0 0 6px var(--accent-blue); }
+
+/* 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.btn-primary {
+  background: var(--accent-blue);
+  color: var(--bg-primary);
+}
+.btn-primary:hover { box-shadow: 0 0 16px rgba(0, 242, 255, 0.4); }
+.btn-danger {
+  background: transparent;
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+}
+.btn-danger:hover { background: rgba(255, 68, 68, 0.15); box-shadow: 0 0 16px rgba(255, 68, 68, 0.3); }
+.btn-warning {
+  background: transparent;
+  border: 1px solid var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+/* 呼吸灯动画 */
+@keyframes breathe-red {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 68, 68, 0.7), 0 0 40px rgba(255, 68, 68, 0.3); }
+}
+@keyframes breathe-orange {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 140, 0, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(255, 140, 0, 0.5), 0 0 32px rgba(255, 140, 0, 0.2); }
+}
+
+.alert-breathing-red {
+  animation: breathe-red 2s ease-in-out infinite;
+}
+.alert-breathing-orange {
+  animation: breathe-orange 2s ease-in-out infinite;
+}
+
+/* 滚动文字 */
+@keyframes scroll-text {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+.alert-scroll {
+  animation: scroll-text 15s linear infinite;
+  white-space: nowrap;
+}

@@ -1,10 +1,27 @@
 {
   "name": "@aquaintelligence/command-center-web",
   "version": "0.1.0",
-  "description": "Web 3D 指挥中心 — Three.js 数字孪生渲染、AI 预测看板、多角色权限视图",
+  "private": true,
+  "type": "module",
+  "description": "AquaIntelligence Web 3D 指挥中心 - Three.js 数字孪生",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0",
+    "pinia": "^2.1.0",
+    "three": "^0.162.0",
+    "echarts": "^5.5.0",
+    "vue-echarts": "^6.6.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@types/three": "^0.162.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.0"
   }
 }

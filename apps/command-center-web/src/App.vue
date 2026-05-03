@@ -1,22 +1,165 @@
-<!--
-  Web 指挥中心入口 (Vue3 + Three.js)
-
-  职责（需求文档 5.2）：
-  1. 3D 数字孪生养殖池 1:1 渲染
-  2. 720° 自由旋转、缩放、视角锁定
-  3. 实时水体透明度随浊度参数变化
-  4. 传感器节点 3D 坐标标注与浮窗读数
-  5. 设备状态动画同步（增氧机旋转、投喂器颗粒喷洒）
-
-  设计风格（需求文档 5.1）：
-  - "深邃工业 Deep-Sea Industrial" 暗色主题
-  - 背景 #0A0A0B，数据流 #00F2FF（荧光蓝），警示 #FF8C00
-  - 3秒原则：3 秒内识别整体风险等级
-  - 零层级触达：应急增氧在任何页面一键触发
--->
 <template>
-  <!-- TODO: 3D 场景容器 (Three.js Canvas) -->
-  <!-- TODO: 左侧 AI 预测趋势带 -->
-  <!-- TODO: 底部硬件节点在线拓扑 -->
-  <!-- TODO: 顶部全局风险等级指示器 -->
+  <div class="app-shell">
+    <!-- 顶部状态栏：风险等级 + 告警滚动 -->
+    <header class="top-bar" :class="alertLevelClass">
+      <div class="top-bar-left">
+        <span class="system-label">AQUA INTELLIGENCE</span>
+        <span class="divider">|</span>
+        <span class="time">{{ currentTime }}</span>
+      </div>
+      <div class="top-bar-center">
+        <div class="risk-indicator" v-if="store.alertLevel !== 'green'">
+          <span class="status-dot" :class="store.alertLevel"></span>
+          <span class="alert-text" v-if="store.alertLevel === 'red'">
+            一级告警：DO 跌破安全阈值，应急增氧已启动
+          </span>
+          <span class="alert-text alert-scroll" v-else>
+            二级预警：AI 预测未来 120 分钟 DO 可能跌破 4.5mg/L，建议提前干预
+          </span>
+        </div>
+        <span v-else class="status-normal">系统运行正常 · 全链路延迟 {{ store.e2eLatency }}ms</span>
+      </div>
+      <div class="top-bar-right">
+        <nav class="top-nav">
+          <router-link to="/" :class="{ active: route.path === '/' }">3D 指挥舱</router-link>
+          <router-link to="/ai-analysis" :class="{ active: route.path === '/ai-analysis' }">AI 分析</router-link>
+          <router-link to="/ceo" :class="{ active: route.path === '/ceo' }">管理看板</router-link>
+        </nav>
+      </div>
+    </header>
+
+    <!-- 主视图 -->
+    <router-view />
+
+    <!-- 底部状态栏 -->
+    <footer class="bottom-bar">
+      <div class="bottom-item">
+        <span class="bottom-label">硬件节点</span>
+        <span class="bottom-value">{{ store.onlineNodes }}/{{ store.totalNodes }} 在线</span>
+      </div>
+      <div class="bottom-item">
+        <span class="bottom-label">网络时延</span>
+        <span class="bottom-value">{{ store.networkLatency }}ms</span>
+      </div>
+      <div class="bottom-item">
+        <span class="bottom-label">消息速率</span>
+        <span class="bottom-value">{{ store.msgRate }} msg/s</span>
+      </div>
+      <div class="bottom-item">
+        <span class="bottom-label">连接数</span>
+        <span class="bottom-value">{{ store.wsConnections }}</span>
+      </div>
+      <div class="bottom-item">
+        <span class="bottom-label">E2E 延迟</span>
+        <span class="bottom-value" :class="{ 'text-warning': store.e2eLatency > 150, 'text-danger': store.e2eLatency > 200 }">
+          P99 {{ store.e2eLatency }}ms
+        </span>
+      </div>
+      <div class="bottom-item">
+        <span class="bottom-label">系统运行</span>
+        <span class="bottom-value">{{ store.uptime }}</span>
+      </div>
+    </footer>
+  </div>
 </template>
+
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useSensorStore } from './stores/sensorData'
+
+const route = useRoute()
+const store = useSensorStore()
+
+const currentTime = ref('')
+let timer: number
+onMounted(() => {
+  timer = window.setInterval(() => {
+    currentTime.value = new Date().toLocaleString('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
+  }, 1000)
+})
+onUnmounted(() => clearInterval(timer))
+
+const alertLevelClass = computed(() => {
+  if (store.alertLevel === 'red') return 'top-bar-alert-red'
+  if (store.alertLevel === 'yellow') return 'top-bar-alert-yellow'
+  return ''
+})
+
+import { ref } from 'vue'
+</script>
+
+<style scoped>
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 顶部状态栏 */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.top-bar-alert-red {
+  border-bottom: 2px solid var(--accent-red);
+  animation: breathe-red 2s ease-in-out infinite;
+}
+.top-bar-alert-yellow {
+  border-bottom: 2px solid var(--accent-orange);
+}
+.system-label {
+  font-weight: 700;
+  color: var(--accent-blue);
+  letter-spacing: 0.12em;
+}
+.divider { color: var(--text-dim); margin: 0 8px; }
+.time { color: var(--text-secondary); font-family: var(--font-mono); }
+.top-bar-center { flex: 1; text-align: center; overflow: hidden; }
+.risk-indicator { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.alert-text { color: var(--accent-orange); font-weight: 600; }
+.status-normal { color: var(--accent-green); }
+.top-nav { display: flex; gap: 4px; }
+.top-nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+.top-nav a:hover, .top-nav a.active {
+  color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+/* 底部状态栏 */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  font-size: 11px;
+  flex-shrink: 0;
+  gap: 24px;
+}
+.bottom-item { display: flex; align-items: center; gap: 6px; }
+.bottom-label { color: var(--text-dim); text-transform: uppercase; }
+.bottom-value { color: var(--text-secondary); font-family: var(--font-mono); }
+.text-warning { color: var(--accent-orange); }
+.text-danger { color: var(--accent-red); }
+</style>
