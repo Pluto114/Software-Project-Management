@@ -1,0 +1,6 @@
+{
+  "name": "@aquaintelligence/control-service",
+  "version": "0.1.0",
+  "description": "控制服务 — 设备远程控制、指令下发与执行反馈、HMAC签名、安全熔断",
+  "main": "dist/main.js"
+}

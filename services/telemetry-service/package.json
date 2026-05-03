@@ -1,0 +1,6 @@
+{
+  "name": "@aquaintelligence/telemetry-service",
+  "version": "0.1.0",
+  "description": "遥测服务 — 高频时序数据接入、InfluxDB 存储、聚合查询、历史数据 API",
+  "main": "dist/main.js"
+}

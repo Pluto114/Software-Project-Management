@@ -1,0 +1,41 @@
+// ============================================================
+// AquaIntelligence 私有 WebSocket 二进制帧协议定义
+// 参考需求文档 6.2.1
+// 用于边缘网关 <-> 云端 <-> 前端 的数据通信
+// ============================================================
+
+// TODO: 定义 protobuf message TelemetryFrame (PayloadType=0x01 实时数据)
+//   uint32 frame_header = 1;        // 帧头 0xAA55
+//   int64 timestamp_ns = 2;         // 纳秒级时间戳
+//   string device_id = 3;           // 设备唯一ID
+//   repeated SensorSample samples = 4; // 批量传感器采样
+
+// TODO: 定义 SensorSample message
+//   uint32 sensor_id = 1;
+//   SensorType type = 2;            // DO=0, pH=1, TEMP=2, ORP=3, NH3N=4, COND=5
+//   float value = 3;
+//   string unit = 4;
+//   uint32 quality = 5;             // 数据质量标记 0=异常剔除 1=原始 2=滤波后
+
+// TODO: 定义 ControlFrame (PayloadType=0x02 控制指令)
+//   uint32 frame_header = 1;
+//   int64 timestamp_ns = 2;
+//   string device_id = 3;
+//   uint32 command_type = 4;
+//   bytes command_params = 5;       // JSON 编码的控制参数
+//   bytes nonce = 6;                // 64位随机数
+//   bytes hmac_signature = 7;       // HMAC-SHA256 签名
+
+// TODO: 定义 HeartbeatFrame (PayloadType=0x03 心跳)
+//   uint32 frame_header = 1;
+//   int64 timestamp_ns = 2;
+//   string device_id = 3;
+//   uint32 sequence = 4;            // 心跳序号
+
+// TODO: 定义 AckFrame (PayloadType=0x04 确认)
+//   uint32 frame_header = 1;
+//   int64 timestamp_ns = 2;
+//   string device_id = 3;
+//   uint32 sequence = 4;
+//   bool success = 5;               // ACK=true, NACK=false
+//   string message = 6;             // 错误描述

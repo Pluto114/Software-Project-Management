@@ -1,0 +1,6 @@
+{
+  "name": "@aquaintelligence/rule-engine-service",
+  "version": "0.1.0",
+  "description": "规则引擎 — 告警规则配置、自动化策略编排、多参数耦合分析、风险等级评估",
+  "main": "dist/main.js"
+}

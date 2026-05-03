@@ -1,0 +1,11 @@
+{
+  "name": "@aquaintelligence/gateway-core",
+  "version": "0.1.0",
+  "description": "边缘网关核心 — 设备接入、Modbus-RTU主站轮询、本地逻辑控制、断点续传、HMAC指令验签",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "ts-node src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  }
+}

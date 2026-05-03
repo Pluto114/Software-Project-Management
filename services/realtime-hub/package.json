@@ -1,0 +1,6 @@
+{
+  "name": "@aquaintelligence/realtime-hub",
+  "version": "0.1.0",
+  "description": "实时枢纽 — WebSocket 长连接管理、二进制帧解析、实时数据推送、50k msg/s 吞吐",
+  "main": "dist/main.js"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@aquaintelligence/command-center-web",
+  "version": "0.1.0",
+  "description": "Web 3D 指挥中心 — Three.js 数字孪生渲染、AI 预测看板、多角色权限视图",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  }
+}

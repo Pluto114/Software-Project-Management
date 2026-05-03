@@ -1,0 +1,6 @@
+{
+  "name": "@aquaintelligence/technician-mobile",
+  "version": "0.1.0",
+  "description": "移动端应急 App — 红绿灯仪表盘、滑动解锁应急控制、强提醒通知",
+  "main": "index.js"
+}

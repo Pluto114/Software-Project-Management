@@ -1,0 +1,22 @@
+-- ============================================================
+-- AquaIntelligence 数据库初始化迁移
+-- 数据库：MySQL 8.0+
+-- 职责：存储设备信息、告警记录、用户配置、资产档案等关系型数据
+-- ============================================================
+
+-- TODO: 养殖池表 (pools)
+--   id, name, volume, area, depth, location, created_at, updated_at
+-- TODO: 传感器表 (sensors)
+--   id, pool_id(FK), type(DO/pH/Temp/ORP/NH3), modbus_addr, position_x, position_y, position_z, status, installed_at
+-- TODO: 设备表 (devices)
+--   id, pool_id(FK), type(aerator/feeder/pump), modbus_addr, rated_power, status, last_maintenance
+-- TODO: 告警记录表 (alerts)
+--   id, pool_id(FK), level(green/yellow/red), rule_id, message, triggered_at, confirmed_by, confirmed_at, resolved_at
+-- TODO: 用户表 (users)
+--   id, username, password_hash, role(technician/expert/ceo), phone, created_at
+-- TODO: 审计日志表 (audit_trail)
+--   id, user_id, action, target_type, target_id, detail(JSON), ip_address, created_at
+-- TODO: 鱼苗批次表 (fish_batches)
+--   id, pool_id(FK), breed, quantity, stock_date, harvest_date, initial_weight, status
+-- TODO: 投喂记录表 (feeding_records)
+--   id, pool_id(FK), batch_id(FK), feed_amount, feed_type, scheduled_time, actual_time, ai_recommended

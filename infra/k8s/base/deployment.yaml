@@ -1,0 +1,37 @@
+# ============================================================
+# Kubernetes 基础部署配置
+# 职责：所有微服务的容器化部署与编排
+# 架构：支持对 AI 推演模块、存储模块独立横向扩容 (需求文档 4.4.1)
+# ============================================================
+
+# TODO: Namespace 定义 (aquaintelligence-prod / aquaintelligence-staging)
+# TODO: ConfigMap: 各服务环境变量（DB连接、Redis地址、InfluxDB地址）
+# TODO: Secret: 敏感配置（HMAC密钥、JWT密钥、TLS证书）
+#
+# TODO: Deployment: realtime-hub (WebSocket 服务)
+#   副本数: 3（HPA: CPU > 70% 扩容至 10）
+#   端口: 8080 (HTTP), 8443 (WSS)
+#   资源: requests 500m CPU / 512Mi Mem, limits 2 CPU / 2Gi Mem
+#
+# TODO: Deployment: telemetry-service
+#   副本数: 2（HPA: 消息积压 > 5000 扩容）
+#   端口: 8080
+#
+# TODO: Deployment: control-service
+#   副本数: 2
+#   端口: 8080
+#
+# TODO: Deployment: rule-engine-service
+#   副本数: 1（规则引擎有状态，需单实例运行）
+#
+# TODO: Deployment: do-forecast-service (AI)
+#   副本数: 2（GPU nodeSelector）
+#   资源: requests 2 CPU / 4Gi Mem, limits 4 CPU / 8Gi Mem
+#
+# TODO: Deployment: command-center-web (前端)
+#   副本数: 2
+#   端口: 80 (Nginx 静态服务)
+#
+# TODO: StatefulSet: Redis Cluster (3 主 3 从)
+# TODO: StatefulSet: InfluxDB (2 节点)
+# TODO: StatefulSet: MySQL (主从复制)

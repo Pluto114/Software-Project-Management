@@ -1,0 +1,43 @@
+# ============================================================
+# Prometheus 监控配置
+# 职责（需求文档 4.5.2）：实时监控各节点 CPU、内存、网络 IO、WebSocket 连接数
+# ============================================================
+
+# TODO: scrape_configs:
+#   - realtime-hub metrics endpoint (/metrics)
+#     - ws_connections_active: 活跃 WebSocket 连接数
+#     - ws_messages_received_total: 接收消息总数
+#     - ws_messages_sent_total: 发送消息总数
+#     - ws_message_latency_ms: 消息处理延迟
+#     - e2e_latency_ms: 端到端延迟（P50/P95/P99）
+#
+#   - telemetry-service metrics
+#     - ingest_rate_per_sec: 数据接入速率
+#     - redis_write_latency_ms: Redis 写入延迟
+#     - influxdb_write_latency_ms: InfluxDB 写入延迟
+#
+#   - do-forecast-service metrics
+#     - inference_latency_ms: AI 推理延迟
+#     - prediction_mae: 预测 MAE 实时值
+#     - model_version: 当前模型版本
+#
+#   - control-service metrics
+#     - commands_issued_total: 下发指令总数
+#     - commands_success_rate: 指令成功率
+#     - hmac_verify_failure_total: HMAC 验签失败数
+#
+#   - edge-gateway metrics
+#     - sensor_polling_latency_ms: 传感器轮询延迟
+#     - local_cache_size_bytes: 本地缓存大小
+#     - network_status: 网络连接状态
+#
+#   - Node Exporter (硬件指标)
+#   - Redis Exporter
+#   - InfluxDB Exporter
+#   - MySQL Exporter
+
+# TODO: AlertManager rules:
+#   - E2E Latency P99 > 200ms (Critical)
+#   - WebSocket 连接数 < 1 (Edge Offline)
+#   - AI 推理延迟 > 70ms (Warning)
+#   - 磁盘使用率 > 85% (Warning)
