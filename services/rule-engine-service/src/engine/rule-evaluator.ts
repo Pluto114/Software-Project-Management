@@ -1,22 +1,99 @@
 /**
- * 规则评估器
+ * 规则评估器 — 订阅 Redis 实时数据，逐条评估规则链
  *
- * 评估流水线：
- * 1. 数据预处理：中值滤波、异常值剔除（需求文档 3.1.2）
- * 2. 阈值匹配：单指标 vs 设定阈值
- * 3. 趋势分析：多时间窗口（1min/5min/30min）斜率检测
- * 4. 耦合分析：多指标 Pearson 相关系数矩阵
- * 5. 风险评级：综合得分 -> 绿/黄/红 等级
- *
- * 关键规则：
- * - DO < 5.0mg/L 黄色预警
- * - DO < 4.5mg/L 红色告警
- * - pH 上升 + NH3-N 上升 -> 毒性增强复合风险（提前 1h 预警）
- * - AI 预测 DO 120min 内 90% 概率跌破阈值 -> 预干预触发
+ * 评估流水线: 阈值匹配 → 趋势分析 → 复合风险 → 风险评级 → Alert 发布
  */
 
-// TODO: 实现规则 DSL 解析器
-// TODO: 实现滑动窗口聚合（1min/5min/30min）
-// TODO: 实现多参数耦合分析算法
-// TODO: 实现风险等级评分算法
-// TODO: 实现评估结果 Action 执行器（告警/控制/通知）
+import Redis from 'ioredis'
+import { evaluateDO, evaluateDOTrend, evaluateCompoundRisk, RiskLevel, RuleResult } from '../rules/do-warning.rule'
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
+
+export class RuleEvaluator {
+  private redis: Redis
+  private doWindows = new Map<string, number[]>()
+  // 每池最新传感器读数
+  private latestReadings = new Map<string, Record<string, number>>()
+  private running = false
+
+  constructor() {
+    this.redis = new Redis(REDIS_URL)
+  }
+
+  async start(): Promise<void> {
+    this.running = true
+
+    this.redis.subscribe('sensor_data', (err) => {
+      if (err) console.error('[evaluator] Redis subscribe error:', err.message)
+    })
+
+    this.redis.on('message', (channel, message) => {
+      if (channel === 'sensor_data') {
+        this.evaluate(message)
+      }
+    })
+
+    console.log('[evaluator] subscribed to Redis channel: sensor_data')
+  }
+
+  async stop(): Promise<void> {
+    this.running = false
+    this.redis.disconnect()
+  }
+
+  /** 评估单条传感器数据 */
+  private async evaluate(raw: string): Promise<void> {
+    try {
+      const msg = JSON.parse(raw)
+      const { pool_id, sensor_type, value } = msg
+
+      // 更新最新读数
+      const readings = this.latestReadings.get(pool_id) || {}
+      readings[sensor_type] = value
+      this.latestReadings.set(pool_id, readings)
+
+      // DO 阈值规则
+      if (sensor_type === 'DO') {
+        const results = evaluateDO(value)
+
+        // DO 趋势窗口
+        const win = this.doWindows.get(pool_id) || []
+        win.push(value)
+        if (win.length > 30) win.shift() // 保留最近 30 个样本
+        this.doWindows.set(pool_id, win)
+
+        const trendResult = evaluateDOTrend(win)
+        if (trendResult) results.push(trendResult)
+
+        // 复合风险
+        const compoundResult = evaluateCompoundRisk(readings)
+        if (compoundResult) results.push(compoundResult)
+
+        // 发布告警到 Redis
+        for (const r of results) {
+          await this.publishAlert(pool_id, r)
+        }
+      }
+
+    } catch {
+      // 忽略无效消息
+    }
+  }
+
+  /** 发布告警到 Redis Pub/Sub */
+  private async publishAlert(poolId: string, result: RuleResult): Promise<void> {
+    const alert = JSON.stringify({
+      pool_id: poolId,
+      rule: result.ruleName,
+      level: result.level,
+      message: result.message,
+      sensor_type: result.sensorType,
+      current_value: result.currentValue,
+      threshold: result.threshold,
+      ts: Date.now(),
+    })
+
+    await this.redis.publish('alert_event', alert)
+    console.log(`[evaluator] ALERT [${result.level.toUpperCase()}] ${poolId}: ${result.message}`)
+  }
+}

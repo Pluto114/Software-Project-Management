@@ -1,6 +1,24 @@
 {
   "name": "@aquaintelligence/telemetry-service",
   "version": "0.1.0",
-  "description": "遥测服务 — 高频时序数据接入、InfluxDB 存储、聚合查询、历史数据 API",
-  "main": "dist/main.js"
+  "description": "遥测服务 — 时序数据接入、InfluxDB 存储、历史查询 API",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.33.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
 }

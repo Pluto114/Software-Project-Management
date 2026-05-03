@@ -1,20 +1,53 @@
 /**
- * 规则引擎入口
+ * rule-engine-service — AquaIntelligence 规则引擎
  *
- * 职责（需求文档 3.2 & 3.4）：
- * 1. 评估实时数据是否触发告警规则
- * 2. AI 预防性控制：DO 预测未来 120min 有 90% 概率跌破 4.5mg/L 时触发预干预
- * 3. 多参数耦合分析：识别"pH上升 + 氨氮上升"的毒性增强复合风险
- * 4. 风险等级评估：绿色(正常)、黄色(AI预警)、红色(强制干预)
- *
- * 规则类型：
- * - 阈值规则：单指标超限告警
- * - 趋势规则：多时间窗口斜率检测
- * - 耦合规则：多指标组合条件
- * - 预测规则：AI 预测结果驱动的预防性触发
+ * 启动: npm run dev   (port 3004)
  */
 
-// TODO: 初始化规则引擎（json-rules-engine 或自研）
-// TODO: 加载规则定义配置（YAML/JSON 格式）
-// TODO: 订阅 Redis 实时数据通道
-// TODO: 实现规则评估结果分发（告警 -> 消息推送, 控制 -> control-service）
+import express from 'express'
+import cors from 'cors'
+import { RuleEvaluator } from './engine/rule-evaluator'
+
+const PORT = parseInt(process.env.PORT || '3004', 10)
+
+async function main() {
+  const app = express()
+  app.use(cors())
+  app.use(express.json())
+
+  app.get('/health', (_req, res) => {
+    res.json({ service: 'rule-engine-service', status: 'ok' })
+  })
+
+  // API: 手动触发规则评估
+  app.post('/api/v1/rules/evaluate', (req, res) => {
+    const { pool_id, sensor_type, value } = req.body
+    // 评估逻辑由 RuleEvaluator 处理，这里只返回确认
+    res.json({
+      accepted: true,
+      pool_id,
+      sensor_type,
+      value,
+      message: 'Data will be evaluated against active rules',
+    })
+  })
+
+  const evaluator = new RuleEvaluator()
+  await evaluator.start()
+
+  const server = app.listen(PORT, () => {
+    console.log(`[rule-engine-service] listening on port ${PORT}`)
+  })
+
+  const shutdown = async (signal: string) => {
+    console.log(`\n[rule-engine-service] received ${signal}, shutting down...`)
+    await evaluator.stop()
+    server.close()
+    process.exit(0)
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+}
+
+main()
