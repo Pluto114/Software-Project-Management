@@ -4,6 +4,40 @@
 > 团队：翁晨昊(PM)、赵杰瑞(Backend)、陈鹏翔(Frontend)、王涵哲(Hardware)
 > 交付日：2026-04-14
 
+## 阶段一完成 · 2026-05-04
+
+**已完成 8/17 GitHub Issues，前端后端核心链路打通。**
+
+| 层 | 交付物 | 状态 |
+|---|--------|------|
+| 前端 | 3D 数字孪生指挥舱 + AI 分析页 + CEO 看板 | ✅ 可独立演示 |
+| 后端 | realtime-hub / telemetry / control / rule-engine | ✅ 微服务集群 |
+| 设施 | Docker Compose (Redis+MySQL+InfluxDB) | ✅ 一键启动 |
+| 工具 | 传感器数据模拟器 | ✅ 模拟边缘网关 |
+| 管理 | GitHub Issues Kanban 看板 (17 Issues, 13 labels) | ✅ |
+
+**启动方式:**
+```bash
+# 基础设施
+docker compose -f docker-compose.dev.yml up -d
+
+# 前端 (port 5173)
+cd apps/command-center-web && npm run dev
+
+# 后端微服务
+cd services/realtime-hub && npm run dev        # port 3001
+cd services/telemetry-service && npm run dev   # port 3002
+cd services/control-service && npm run dev     # port 3003
+cd services/rule-engine-service && npm run dev # port 3004
+
+# 数据模拟器 (填充真实数据流)
+npx tsx tools/dev-scripts/sensor-simulator.ts
+```
+
+**数据链路:** sensor-simulator → WebSocket(3001) → Redis → telemetry(3002) → InfluxDB → REST API → 前端
+
+---
+
 ## 看板说明
 
 每个任务用 GitHub Issue 标签标记：
@@ -15,11 +49,11 @@
 
 - [ ] **P0** `infra` 初始化 Monorepo 工程结构（pnpm workspace / turborepo）
 - [ ] **P0** `infra` 配置 ESLint + Prettier + Husky + commitlint
-- [ ] **P0** `fe` 搭建 Vue3 + Vite + TypeScript + Three.js 前端项目
+- [x] **P0** `fe` 搭建 Vue3 + Vite + TypeScript + Three.js 前端项目 ✅
 - [ ] **P0** `fe` 搭建 React Native / Expo 移动端项目
 - [ ] **P0** `be` 搭建 NestJS 后端微服务项目
 - [ ] **P0** `ml` 搭建 Python FastAPI ML 推理服务骨架
-- [ ] **P1** `infra` Docker Compose 本地开发环境（Redis + MySQL + InfluxDB）
+- [x] **P1** `infra` Docker Compose 本地开发环境（Redis + MySQL + InfluxDB） ✅
 - [ ] **P1** `hw` 定义 Modbus-RTU 寄存器映射常量表
 
 ## M2：核心研发（截止 2026-03-25）
@@ -33,19 +67,18 @@
 - [ ] **P2** `hw` 实现 HMAC-SHA256 验签模块（Nonce 去重 + 时间窗口 2000ms）
 
 ### 实时枢纽（赵杰瑞）
-- [ ] **P0** `be` 实现 WebSocket 服务器（Netty / ws）
-
-- [ ] **P0** `be` 实现二进制帧解析器（帧头检测 + 帧长校验）
-- [ ] **P0** `be` 实现连接管理器（心跳监测 10s + JWT 认证）
-- [ ] **P0** `be` 实现消息路由总线（0x01/0x02/0x03/0x04 分发）
-- [ ] **P1** `be` 实现 Trace ID 注入与传播（UUID v7）
+- [x] **P0** `be` 实现 WebSocket 服务器（端口 3001） ✅
+- [x] **P0** `be` 实现二进制帧解析器（0xAA55 + CRC-16） ✅
+- [x] **P0** `be` 实现连接管理器（心跳 10s + JWT 认证） ✅
+- [x] **P0** `be` 实现消息路由总线（0x01/0x02/0x03/0x04 分发） ✅
+- [x] **P1** `be` 实现 Trace ID 注入与传播 ✅
 - [ ] **P1** `be` 实现背压控制（入站限流）
 
 ### 遥测服务（赵杰瑞）
-- [ ] **P0** `be` 实现 Redis Pub/Sub 消费者（sensor_data 频道）
-- [ ] **P0** `be` 实现 InfluxDB 批量写入（Line Protocol, batch 5000）
-- [ ] **P1** `be` 实现 Redis 实时快照缓存（最新一条传感器读数）
-- [ ] **P1** `be` 实现历史数据查询 API（GET /api/v1/assets/history）
+- [x] **P0** `be` 实现 Redis Pub/Sub 消费者（sensor_data 频道） ✅
+- [x] **P0** `be` 实现 InfluxDB 批量写入（Line Protocol, batch 5000） ✅
+- [x] **P1** `be` 实现 Redis 实时快照缓存（最新一条传感器读数） ✅
+- [x] **P1** `be` 实现历史数据查询 API（GET /api/v1/assets/history） ✅
 - [ ] **P2** `be` 实现 30 天数据过期策略 + 小时聚合任务
 
 ### AI 预测服务（赵杰瑞）
@@ -55,27 +88,27 @@
 - [ ] **P2** `ml` 实现多参数耦合异常检测（pH + NH3-N 复合风险）
 
 ### 规则引擎（赵杰瑞）
-- [ ] **P1** `be` 实现规则 DSL 解析器（阈值/趋势/耦合/预测规则）
-- [ ] **P1** `be` 实现 DO 预警规则链（黄色预警 / 红色告警 / 预干预触发）
-- [ ] **P2** `be` 实现风险等级评分（绿色/黄色/红色）
+- [x] **P1** `be` 实现规则 DSL 解析器（阈值/趋势/耦合/预测规则） ✅
+- [x] **P1** `be` 实现 DO 预警规则链（黄色预警 / 红色告警 / 预干预触发） ✅
+- [x] **P2** `be` 实现风险等级评分（绿色/黄色/红色） ✅
 
 ### 控制服务（赵杰瑞）
-- [ ] **P0** `be` 实现 HMAC 指令签名生成
-- [ ] **P0** `be` 实现指令下发 API（POST /api/v1/control/command）
-- [ ] **P1** `be` 实现指令生命周期追踪（pending -> ack -> executed）
+- [x] **P0** `be` 实现 HMAC 指令签名生成 ✅
+- [x] **P0** `be` 实现指令下发 API（POST /api/v1/control/command） ✅
+- [x] **P1** `be` 实现指令生命周期追踪（pending -> ack -> executed） ✅
 - [ ] **P1** `be` 实现手动优先仲裁逻辑
-- [ ] **P2** `be` 实现 Nonce 防重放缓存
+- [x] **P2** `be` 实现 Nonce 防重放缓存 ✅
 
 ### Web 3D 指挥中心（陈鹏翔）
-- [ ] **P0** `fe` 实现 Three.js 3D 场景初始化（Renderer + Camera + Lights）
-- [ ] **P0** `fe` 实现养殖池 3D 模型渲染（半透明水体 Shader）
+- [x] **P0** `fe` 实现 Three.js 3D 场景初始化（Renderer + Camera + Lights） ✅
+- [x] **P0** `fe` 实现养殖池 3D 模型渲染（半透明水体 Shader） ✅
 - [ ] **P0** `fe` 实现 WebSocket 客户端（双缓冲数据管道）
-- [ ] **P1** `fe` 实现传感器节点 3D 标记与点击浮窗
+- [x] **P1** `fe` 实现传感器节点 3D 标记与点击浮窗 ✅
 - [ ] **P1** `fe` 实现设备状态动画（增氧机旋转 + 投喂器粒子）
 - [ ] **P1** `fe` 实现 3D 热力云图（DO/温度空间分布）
-- [ ] **P1** `fe` 实现告警脉冲光效（橙色呼吸灯包围盒）
-- [ ] **P1** `fe` 实现 AI 预测分析页面（三线对比 + 置信区间）
-- [ ] **P2** `fe` 实现 CEO 综合管理看板（饼图/柱状图/成本收益曲线）
+- [x] **P1** `fe` 实现告警脉冲光效（橙色呼吸灯包围盒） ✅
+- [x] **P1** `fe` 实现 AI 预测分析页面（三线对比 + 置信区间） ✅
+- [x] **P2** `fe` 实现 CEO 综合管理看板（饼图/柱状图/成本收益曲线） ✅
 - [ ] **P2** `fe` 实现多角色权限视图切换
 
 ### 移动端 App（陈鹏翔）
@@ -84,7 +117,7 @@
 - [ ] **P2** `fe` 实现强提醒通知推送（Critical Alert API）
 
 ### 基础设施
-- [ ] **P1** `infra` 编写 MySQL 初始化迁移脚本（设备/告警/用户/审计表）
+- [x] **P1** `infra` 编写 MySQL 初始化迁移脚本（设备/告警/用户/审计表） ✅
 - [ ] **P1** `infra` 编写 K8s Deployment + Service + Ingress 配置
 - [ ] **P2** `infra` 编写 Prometheus 监控规则 + Grafana Dashboard
 - [ ] **P2** `infra` 编写 ELK 日志采集配置（Trace ID 追踪）
