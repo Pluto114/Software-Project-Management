@@ -76,33 +76,80 @@ export const useSensorStore = defineStore('sensor', () => {
 
   // 模拟数据更新（开发用，WebSocket 可用时自动停用）
   let simTimer: number | null = null
+  let simTick = 0
+  // 保持状态以模拟时间连续性
+  const simState: Record<string, Record<string, number>> = {
+    'P01': { DO: 5.8, pH: 7.6, TEMP: 27.2, NH3N: 0.15 },
+    'P02': { DO: 5.3, pH: 7.4, TEMP: 27.8, NH3N: 0.18 },
+  }
   function startSimulation() {
     dataSource.value = 'sim'
-    const poolIds = ['pool-01', 'pool-02']
-    const sensorTypes = ['DO', 'pH', 'TEMP'] as const
+    const poolIds = ['P01', 'P02']
+    const sensorTypes = ['DO', 'pH', 'TEMP', 'NH3N'] as const
+    const units: Record<string, string> = { DO: 'mg/L', pH: 'pH', TEMP: '°C', NH3N: 'mg/L' }
+    const ranges: Record<string, [number, number]> = { DO: [2, 9], pH: [6.5, 8.5], TEMP: [20, 35], NH3N: [0.05, 0.5] }
+
     simTimer = window.setInterval(() => {
-      const ts = Date.now() * 1_000_000 // 模拟纳秒时间戳
+      simTick++
+      const ts = Date.now() * 1_000_000
+      const elapsedMin = simTick * (1000 / 60000)  // 1s 间隔
+
       for (const poolId of poolIds) {
+        const state = simState[poolId]
         for (const type of sensorTypes) {
+          // 基于当前值做小幅度变化 (时间连续性)
+          let delta = 0
+          switch (type) {
+            case 'DO': {
+              const aeratorCycle = Math.sin(elapsedMin / 30 * Math.PI * 2) * 0.04
+              const drift = -0.0002
+              const noise = (Math.random() - 0.5) * 0.15
+              delta = aeratorCycle + drift + noise
+              break
+            }
+            case 'TEMP': {
+              const diurnal = Math.cos(elapsedMin / 720 * Math.PI * 2) * 0.01
+              const noise = (Math.random() - 0.5) * 0.08
+              delta = diurnal + noise
+              break
+            }
+            case 'pH': {
+              const doEffect = Math.sin(elapsedMin / 30 * Math.PI * 2) * 0.005
+              const noise = (Math.random() - 0.5) * 0.03
+              delta = doEffect + noise
+              break
+            }
+            case 'NH3N': {
+              const drift = 0.00001
+              const noise = (Math.random() - 0.5) * 0.005
+              delta = drift + noise
+              break
+            }
+          }
+          const [lo, hi] = ranges[type]
+          state[type] = Math.max(lo, Math.min(hi, state[type] + delta))
+
           const reading: SensorReading = {
             sensorId: `${poolId}-${type}`,
             poolId,
-            type,
-            value: type === 'DO' ? 5.0 + Math.random() * 3 :
-                   type === 'pH' ? 7.0 + Math.random() * 1.2 :
-                   26.0 + Math.random() * 3,
-            unit: type === 'DO' ? 'mg/L' : type === 'pH' ? 'pH' : '°C',
+            type: type as 'DO' | 'pH' | 'TEMP' | 'NH3N',
+            value: Math.round(state[type] * 100) / 100,
+            unit: units[type],
             timestamp: ts,
             quality: 0.95 + Math.random() * 0.05,
           }
           latestReadings.value.set(reading.sensorId, reading)
+
+          // 累计历史缓冲 (用于图表)
+          historyBuffer.value.push(reading)
+          if (historyBuffer.value.length > 3600) historyBuffer.value.shift()
         }
       }
-      // 更新模拟指标
-      msgRate.value = Math.floor(800 + Math.random() * 400)
-      e2eLatency.value = Math.floor(45 + Math.random() * 40)
-      networkLatency.value = Math.floor(8 + Math.random() * 15)
-    }, 1000) // 1s 更新一次用于 Demo，实际 100ms
+      // 更新指标 (有波动)
+      msgRate.value = Math.floor(800 + Math.sin(simTick / 120) * 300 + Math.random() * 100)
+      e2eLatency.value = Math.floor(55 + Math.sin(simTick / 60) * 20 + Math.random() * 10)
+      networkLatency.value = Math.floor(10 + Math.random() * 12)
+    }, 1000)
   }
 
   function stopSimulation() {
