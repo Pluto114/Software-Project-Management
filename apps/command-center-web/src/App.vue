@@ -24,6 +24,7 @@
           <router-link to="/" :class="{ active: route.path === '/' }">3D 指挥舱</router-link>
           <router-link to="/ai-analysis" :class="{ active: route.path === '/ai-analysis' }">AI 分析</router-link>
           <router-link to="/ceo" :class="{ active: route.path === '/ceo' }">管理看板</router-link>
+          <router-link to="/mobile" :class="{ active: route.path === '/mobile' }">移动端</router-link>
         </nav>
       </div>
     </header>
