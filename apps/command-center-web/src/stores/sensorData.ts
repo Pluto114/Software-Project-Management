@@ -55,6 +55,9 @@ export const useSensorStore = defineStore('sensor', () => {
   // 设备
   const devices = ref<DeviceStatus[]>([])
 
+  // 数据源: 'ws' | 'sim' | 'none'
+  const dataSource = ref<'ws' | 'sim' | 'none'>('none')
+
   // 系统状态
   const onlineNodes = ref(6)
   const totalNodes = ref(8)
@@ -71,9 +74,10 @@ export const useSensorStore = defineStore('sensor', () => {
     { name: '水温变化', weight: 29, description: '傍晚温差变化影响摄食和溶氧消耗节奏' },
   ])
 
-  // 模拟数据更新（开发用，后期替换为 WebSocket）
+  // 模拟数据更新（开发用，WebSocket 可用时自动停用）
   let simTimer: number | null = null
   function startSimulation() {
+    dataSource.value = 'sim'
     const poolIds = ['pool-01', 'pool-02']
     const sensorTypes = ['DO', 'pH', 'TEMP'] as const
     simTimer = window.setInterval(() => {
@@ -122,6 +126,7 @@ export const useSensorStore = defineStore('sensor', () => {
   return {
     latestReadings, historyBuffer, currentPrediction,
     alertLevel, activeAlerts, devices,
+    dataSource,
     onlineNodes, totalNodes, networkLatency, msgRate, wsConnections, e2eLatency, uptime,
     riskFactors,
     startSimulation, stopSimulation, setAlertLevel, addAlert,

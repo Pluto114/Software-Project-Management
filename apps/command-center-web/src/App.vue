@@ -60,21 +60,38 @@
         <span class="bottom-label">系统运行</span>
         <span class="bottom-value">{{ store.uptime }}</span>
       </div>
+      <div class="bottom-item">
+        <span class="bottom-label">数据源</span>
+        <span class="bottom-value" :class="{ 'text-green': connected, 'text-warn': fallbackActive }">
+          {{ connected ? 'WS 实时' : fallbackActive ? '模拟数据' : '连接中...' }}
+        </span>
+      </div>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSensorStore } from './stores/sensorData'
+import { useWebSocket } from './composables/useWebSocket'
 
 const route = useRoute()
 const store = useSensorStore()
+const { connected, fallbackActive, connect } = useWebSocket()
 
 const currentTime = ref('')
 let timer: number
 onMounted(() => {
+  // 优先尝试 WebSocket 连接，失败自动降级 Pinia
+  connect()
+  // 延迟 2s 后若仍未连接，启动模拟数据
+  setTimeout(() => {
+    if (!connected.value && store.dataSource === 'none') {
+      store.startSimulation()
+    }
+  }, 2000)
+
   timer = window.setInterval(() => {
     currentTime.value = new Date().toLocaleString('zh-CN', {
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -90,7 +107,6 @@ const alertLevelClass = computed(() => {
   return ''
 })
 
-import { ref } from 'vue'
 </script>
 
 <style scoped>
@@ -161,6 +177,7 @@ import { ref } from 'vue'
 .bottom-item { display: flex; align-items: center; gap: 6px; }
 .bottom-label { color: var(--text-dim); text-transform: uppercase; }
 .bottom-value { color: var(--text-secondary); font-family: var(--font-mono); }
+.text-green { color: var(--accent-green); }
 .text-warning { color: var(--accent-orange); }
 .text-danger { color: var(--accent-red); }
 </style>
