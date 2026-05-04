@@ -79,20 +79,16 @@
       <div class="section-title">应急控制</div>
       <div class="emergency-panel" :class="{ unlocked: unlocked, confirming: confirming }">
         <div
+          ref="slideTrackRef"
           class="slide-track"
-          @touchstart.passive="onSlideStart"
           @mousedown="onSlideStart"
+          @touchstart.passive="onSlideStart"
         >
           <div class="slide-fill" :style="{ width: slidePct + '%' }"></div>
           <div
             class="slide-thumb"
             :class="{ sliding: isSliding }"
             :style="{ left: slidePct + '%' }"
-            @touchmove.prevent="onSlideMove"
-            @mousemove.prevent="onSlideMove"
-            @touchend="onSlideEnd"
-            @mouseup="onSlideEnd"
-            @mouseleave="onSlideEnd"
           >
             <span class="slide-icon">{{ unlocked ? '✓' : '⟫' }}</span>
           </div>
@@ -227,33 +223,42 @@ const overallText = computed(() => {
 })
 
 // 滑动解锁
+const slideTrackRef = ref<HTMLDivElement>()
 const unlocked = ref(false)
 const confirming = ref(false)
 const isSliding = ref(false)
 const slidePct = ref(0)
-let slideStartX = 0
 const SLIDE_THRESHOLD = 75
 
 // 浏览器通知
 const { notify, ensurePermission } = useNotification()
 onMounted(() => { ensurePermission() })
 
+function calcSlidePct(clientX: number): number {
+  if (!slideTrackRef.value) return 0
+  const rect = slideTrackRef.value.getBoundingClientRect()
+  return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
+}
+
 function onSlideStart(e: MouseEvent | TouchEvent) {
-  slideStartX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  if (unlocked.value) return
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
   isSliding.value = true
+  slidePct.value = calcSlidePct(clientX)
+  window.addEventListener('mousemove', onSlideMove)
+  window.addEventListener('mouseup', onSlideEnd)
+  window.addEventListener('touchmove', onSlideMove, { passive: false })
+  window.addEventListener('touchend', onSlideEnd)
 }
 
 function onSlideMove(e: MouseEvent | TouchEvent) {
   if (!isSliding.value) return
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const track = (e.target as HTMLElement).closest('.slide-track')
-  if (!track) return
-  const rect = track.getBoundingClientRect()
-  const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
-  slidePct.value = pct
+  const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX
+  slidePct.value = calcSlidePct(clientX)
 }
 
 function onSlideEnd() {
+  if (!isSliding.value) return
   isSliding.value = false
   if (slidePct.value >= SLIDE_THRESHOLD) {
     unlocked.value = true
@@ -261,7 +266,13 @@ function onSlideEnd() {
   } else {
     slidePct.value = 0
   }
+  // 移除全局监听
+  window.removeEventListener('mousemove', onSlideMove)
+  window.removeEventListener('mouseup', onSlideEnd)
+  window.removeEventListener('touchmove', onSlideMove)
+  window.removeEventListener('touchend', onSlideEnd)
 }
+
 
 function triggerEmergency(action: string) {
   confirming.value = true
