@@ -114,7 +114,7 @@ npx tsx tools/dev-scripts/sensor-simulator.ts
 ### 移动端 App（陈鹏翔）
 - [x] **P1** `fe` 实现红绿灯仪表盘首页（卡片式布局） ✅ TechnicianMobile.vue
 - [x] **P1** `fe` 实现滑动解锁应急控制（防误触 + 硬件指令直达） ✅ 滑动解锁 + 应急按钮
-- [ ] **P2** `fe` 实现强提醒通知推送（Critical Alert API）
+- [x] **P2** `fe` 实现强提醒通知推送（Critical Alert API） ✅ Browser Notification API
 
 ### 基础设施
 - [x] **P1** `infra` 编写 MySQL 初始化迁移脚本（设备/告警/用户/审计表） ✅

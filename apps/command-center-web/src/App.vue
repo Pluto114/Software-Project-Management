@@ -75,14 +75,19 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSensorStore } from './stores/sensorData'
 import { useWebSocket } from './composables/useWebSocket'
+import { useNotification } from './composables/useNotification'
 
 const route = useRoute()
 const store = useSensorStore()
 const { connected, fallbackActive, connect } = useWebSocket()
+const { ensurePermission } = useNotification()
 
 const currentTime = ref('')
 let timer: number
 onMounted(() => {
+  // 请求浏览器通知权限 (静默降级)
+  ensurePermission()
+
   // 优先尝试 WebSocket 连接，失败自动降级 Pinia
   connect()
   // 延迟 2s 后若仍未连接，启动模拟数据

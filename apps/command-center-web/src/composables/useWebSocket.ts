@@ -6,6 +6,7 @@
 
 import { ref, onUnmounted } from 'vue'
 import { useSensorStore, SensorReading } from '../stores/sensorData'
+import { useNotification } from './useNotification'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001'
 const RECONNECT_DELAY = 3000
@@ -129,18 +130,32 @@ export function useWebSocket() {
   function handleAlert(payload: Uint8Array) {
     try {
       const msg = JSON.parse(new TextDecoder().decode(payload))
+      const level = msg.level || 'yellow'
+      const poolId = msg.pool_id || 'unknown'
+      const message = msg.message || ''
+
       store.addAlert({
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        level: msg.level || 'yellow',
-        poolId: msg.pool_id || 'unknown',
+        level,
+        poolId,
         ruleId: msg.rule || 'unknown',
-        message: msg.message || '',
+        message,
         triggeredAt: Date.now(),
         confirmed: false,
       })
 
-      if (msg.level === 'red') store.alertLevel = 'red'
-      else if (msg.level === 'yellow' && store.alertLevel !== 'red') store.alertLevel = 'yellow'
+      if (level === 'red') store.alertLevel = 'red'
+      else if (level === 'yellow' && store.alertLevel !== 'red') store.alertLevel = 'yellow'
+
+      // 浏览器强提醒通知 (red/yellow 级别)
+      const { notify } = useNotification()
+      if (level === 'red' || level === 'yellow') {
+        notify(
+          `${poolId} ${level === 'red' ? '紧急告警' : '预警'}`,
+          message,
+          level,
+        )
+      }
     } catch { /* ignore */ }
   }
 

@@ -130,7 +130,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useNotification } from '../composables/useNotification'
 
 // ==================== 数据 ====================
 
@@ -233,6 +234,10 @@ const slidePct = ref(0)
 let slideStartX = 0
 const SLIDE_THRESHOLD = 75
 
+// 浏览器通知
+const { notify, ensurePermission } = useNotification()
+onMounted(() => { ensurePermission() })
+
 function onSlideStart(e: MouseEvent | TouchEvent) {
   slideStartX = 'touches' in e ? e.touches[0].clientX : e.clientX
   isSliding.value = true
@@ -265,8 +270,10 @@ function triggerEmergency(action: string) {
     freq_up: '增氧频率 +15% 指令已发送',
     stop_feed: '停止投喂指令已发送',
   }
-  const alert = { time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), level: 'red' as const, msg: msgs[action] || action }
+  const msg = msgs[action] || action
+  const alert = { time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), level: 'red' as const, msg }
   alerts.value.unshift(alert)
+  notify('应急指令已执行', `${currentPool.value.id}: ${msg}`, 'red')
   setTimeout(() => {
     confirming.value = false
     unlocked.value = false
