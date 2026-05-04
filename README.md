@@ -13,30 +13,41 @@
 | 前端 | 3D 数字孪生 / AI 分析 / CEO 看板 / 移动端 | Vue3 + Three.js + ECharts | 5173 |
 | 后端 | WebSocket 枢纽 / 遥测 / 控制 / 规则引擎 | Node.js + TypeScript | 3001-3004 |
 | AI | DO 预测服务 + FCR 优化 | Python FastAPI | 8000 |
-| 设施 | Redis + MySQL + InfluxDB | Docker Compose | 3306/6379/8086 |
+| 设施 | Redis + MySQL + InfluxDB | Docker Compose | 3307/6379/8086 |
 | 工具 | 传感器数据模拟器 | TypeScript | - |
 | 管理 | GitHub Issues Kanban 看板 | 17 Issues, 13 labels | - |
 
 ### 快速启动
 
+> 前置要求：Node.js 18+, Docker Desktop, Python 3.10+
+
 ```bash
+# 0. 安装依赖 (仅首次，耗时约 2-3 分钟)
+cd apps/command-center-web && npm install && cd ../..
+cd services/realtime-hub && npm install && cd ../..
+cd services/telemetry-service && npm install && cd ../..
+cd services/control-service && npm install && cd ../..
+cd services/rule-engine-service && npm install && cd ../..
+cd ml/do-forecast-service && pip install -r requirements.txt && cd ../..
+cd tools/dev-scripts && npm install && cd ../..
+
 # 1. 基础设施
 docker compose -f docker-compose.dev.yml up -d
 
 # 2. 前端 (任意一个终端)
-cd apps/command-center-web && npm run dev
+cd apps/command-center-web && npm run dev         # :5173
 
 # 3. 后端微服务 (各开终端)
-cd services/realtime-hub && npm run dev         # WebSocket :3001
-cd services/telemetry-service && npm run dev    # 遥测 :3002
-cd services/control-service && npm run dev      # 控制 :3003
-cd services/rule-engine-service && npm run dev  # 规则 :3004
+cd services/realtime-hub && npm run dev           # WebSocket :3001
+cd services/telemetry-service && npm run dev      # 遥测 :3002
+cd services/control-service && npm run dev        # 控制 :3003
+cd services/rule-engine-service && npm run dev    # 规则 :3004
 
-# 4. AI 服务
+# 4. AI 服务 (可选，不影响前端运行)
 cd ml/do-forecast-service && python src/serve.py  # :8000
 
 # 5. 数据模拟 (填充数据流)
-npx tsx tools/dev-scripts/sensor-simulator.ts
+cd tools/dev-scripts && npx tsx sensor-simulator.ts
 ```
 
 **前端可独立运行** — 无后端时自动降级到 Pinia 模拟数据。
