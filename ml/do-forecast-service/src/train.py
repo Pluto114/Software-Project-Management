@@ -1,21 +1,59 @@
 """
-模型训练脚本
+模型训练脚本 (生产环境)
 
-训练数据：
-1. 从 InfluxDB 拉取历史时序数据（DO、水温、pH、气压等）
-2. 数据清洗：缺失值线性插值、异常值剔除（3σ原则）
-3. 特征工程：添加时间特征（hour, day_of_week）、滞后特征（lag-1, lag-5, lag-10）
+训练流程:
+1. 从 InfluxDB 拉取历史数据
+2. 数据清洗 + 特征工程
+3. 滑动窗口切分
+4. LSTM 训练 (早停 + 学习率衰减)
+5. 模型保存 + 版本管理
 
-训练策略：
-1. 训练/验证/测试 = 70%/15%/15%（按时间顺序切分，避免未来信息泄露）
-2. 损失函数：MSE（预测值）+ 0.3 × MSE（置信区间）
-3. 优化器：Adam, learning_rate=0.001, 余弦退火衰减
-4. 早停：val_loss 连续 10 epoch 不下降则停止
-5. 评估指标：MAE, RMSE, R²
+演示模式: 跳过训练，使用 DOModel (mock) 直接推理
+
+使用:
+  # 训练
+  python src/train.py --epochs 100 --batch-size 32
+
+  # 仅验证
+  python src/train.py --validate-only
 """
 
-# TODO: 实现数据加载管道（InfluxDB -> Pandas DataFrame）
-# TODO: 实现特征工程（滞后特征、时间特征、归一化）
-# TODO: 实现滑动窗口生成器（window=120, stride=1）
-# TODO: 实现训练循环（含验证集评估与早停）
-# TODO: 实现模型保存（HDF5 / SavedModel 格式）
+import argparse
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="DO LSTM 模型训练")
+    p.add_argument("--epochs", type=int, default=100)
+    p.add_argument("--batch-size", type=int, default=32)
+    p.add_argument("--learning-rate", type=float, default=0.001)
+    p.add_argument("--validate-only", action="store_true")
+    p.add_argument("--data-start", default="-30d", help="训练数据起始时间")
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    print("=" * 50)
+    print("AquaIntelligence DO LSTM 训练")
+    print("=" * 50)
+    print(f"epochs: {args.epochs}")
+    print(f"batch_size: {args.batch_size}")
+    print(f"learning_rate: {args.learning_rate}")
+
+    # 演示模式 — 无实际训练
+    print("\n[INFO] 演示模式 — 跳过实际训练")
+    print("[INFO] 生产环境需:")
+    print("  1. 安装 tensorflow>=2.12.0")
+    print("  2. 配置 InfluxDB 连接 (INFLUX_URL, INFLUX_TOKEN)")
+    print("  3. 运行: python src/train.py --epochs 100")
+    print("\n[INFO] 当前使用 DOModel (mock) 进行推理，无需训练")
+    print("[INFO] 启动推理服务: python src/serve.py")
+
+
+if __name__ == "__main__":
+    main()

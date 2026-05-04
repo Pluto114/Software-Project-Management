@@ -1,16 +1,19 @@
-# DO 预测服务 (Dissolved Oxygen Forecast Service)
-# 职责：LSTM 时序预测、FCR 优化、异常征兆识别
+# DO 预测服务 — 轻量演示版
+# 生产部署时取消注释 tensorflow 行，替换 mock 模型
 
-# 深度学习框架
-tensorflow>=2.12.0
-# 数据处理
-numpy>=1.24.0
-pandas>=2.0.0
-scikit-learn>=1.3.0
+# 深度学习 (生产环境)
+# tensorflow>=2.12.0
+
 # Web 推理服务
 fastapi>=0.100.0
 uvicorn>=0.23.0
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+
+# 数据验证
+pydantic>=2.0.0
+
 # 时序数据库客户端
 influxdb-client>=1.36.0
-# 其他
-pydantic>=2.0.0
