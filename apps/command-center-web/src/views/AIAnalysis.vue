@@ -193,7 +193,7 @@ const timeRanges = [
   { seconds: 300, label: '5min', maxPoints: 300 },
 ]
 const timeRange = ref(120)
-const maxPoints = computed(() => timeRanges.value === 30 ? 30 : timeRanges.value === 120 ? 120 : 300)
+const maxPoints = computed(() => timeRange.value === 30 ? 30 : timeRange.value === 120 ? 120 : 300)
 
 const predicting = ref(false)
 
