@@ -21,11 +21,16 @@
       </div>
       <div class="top-bar-right">
         <nav class="top-nav">
-          <router-link to="/" :class="{ active: route.path === '/' }">3D 指挥舱</router-link>
-          <router-link to="/ai-analysis" :class="{ active: route.path === '/ai-analysis' }">AI 分析</router-link>
-          <router-link to="/ceo" :class="{ active: route.path === '/ceo' }">管理看板</router-link>
-          <router-link to="/mobile" :class="{ active: route.path === '/mobile' }">移动端</router-link>
+          <router-link v-if="auth.canAccess('/')" to="/" :class="{ active: route.path === '/' }">3D 指挥舱</router-link>
+          <router-link v-if="auth.canAccess('/ai-analysis')" to="/ai-analysis" :class="{ active: route.path === '/ai-analysis' }">AI 分析</router-link>
+          <router-link v-if="auth.canAccess('/ceo')" to="/ceo" :class="{ active: route.path === '/ceo' }">管理看板</router-link>
+          <router-link v-if="auth.canAccess('/mobile')" to="/mobile" :class="{ active: route.path === '/mobile' }">移动端</router-link>
         </nav>
+        <select class="role-switcher" :value="auth.currentRole" @change="switchRole(($event.target as HTMLSelectElement).value)">
+          <option value="admin">PM 视角</option>
+          <option value="operator">运维视角</option>
+          <option value="viewer">分析视角</option>
+        </select>
       </div>
     </header>
 
@@ -72,15 +77,27 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useSensorStore } from './stores/sensorData'
+import { useAuthStore, Role } from './stores/auth'
 import { useWebSocket } from './composables/useWebSocket'
 import { useNotification } from './composables/useNotification'
 
 const route = useRoute()
+const router = useRouter()
 const store = useSensorStore()
+const auth = useAuthStore()
 const { connected, fallbackActive, connect } = useWebSocket()
 const { ensurePermission } = useNotification()
+
+function switchRole(value: string) {
+  auth.setRole(value as Role)
+  // 切换后跳转到该角色可访问的首页
+  const home = auth.roleRouteAccess[value as Role][0]
+  if (home && !auth.canAccess(route.path)) {
+    router.push(home)
+  }
+}
 
 const currentTime = ref('')
 let timer: number
@@ -185,4 +202,16 @@ const alertLevelClass = computed(() => {
 .text-green { color: var(--accent-green); }
 .text-warning { color: var(--accent-orange); }
 .text-danger { color: var(--accent-red); }
+.role-switcher {
+  margin-left: 10px;
+  padding: 3px 8px;
+  font-size: 11px;
+  background: var(--bg-primary);
+  color: var(--accent-blue);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.role-switcher:focus { outline: none; border-color: var(--accent-blue); }
 </style>

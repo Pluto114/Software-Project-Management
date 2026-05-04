@@ -15,6 +15,8 @@ const INFLUX_BUCKET = process.env.INFLUX_BUCKET || 'sensor_telemetry'
 
 const BATCH_SIZE = 5000
 const FLUSH_INTERVAL_MS = 1000
+const RETENTION_DAYS = 30
+const RETENTION_CHECK_MS = 3600_000 // 每小时检查一次
 
 /** 传感器值域白名单 */
 const SENSOR_RANGES: Record<string, [number, number]> = {
@@ -36,6 +38,7 @@ export class DataIngest {
   // 统计窗口: sensorId → { sum, sum2, count } (for 3σ)
   private statsWindows = new Map<string, { sum: number; sum2: number; count: number }>()
   private running = false
+  private retentionTimer: NodeJS.Timeout | null = null
 
   constructor() {
     this.redis = new Redis(REDIS_URL)
@@ -68,11 +71,18 @@ export class DataIngest {
       this.flush()
     })
 
+    // 数据过期策略：定期清理超过 RETENTION_DAYS 的数据
+    this.retentionTimer = setInterval(() => {
+      this.runRetentionPolicy()
+    }, RETENTION_CHECK_MS)
+    this.runRetentionPolicy() // 启动时立即执行一次
+
     console.log('[ingest] subscribed to Redis channel: sensor_data')
   }
 
   async stop(): Promise<void> {
     this.running = false
+    if (this.retentionTimer) clearInterval(this.retentionTimer)
     this.flush()
     await this.writeApi.close()
     this.redis.disconnect()
@@ -152,6 +162,41 @@ export class DataIngest {
       console.log(`[ingest] flushed ${lines.length} points to InfluxDB`)
     } catch (err: any) {
       console.error('[ingest] InfluxDB write error:', err.message)
+    }
+  }
+
+  /** 30 天数据过期策略 */
+  private async runRetentionPolicy(): Promise<void> {
+    const cutoff = new Date(Date.now() - RETENTION_DAYS * 86400_000).toISOString()
+    try {
+      const queryApi = this.influx.getQueryApi(INFLUX_ORG)
+      const deleteQuery = `
+        delete
+        from sensor_reading
+        where time < '${cutoff}'
+      `
+      // InfluxDB 2.x delete 通过 POST /api/v2/delete
+      const url = `${INFLUX_URL}/api/v2/delete?org=${encodeURIComponent(INFLUX_ORG)}&bucket=${encodeURIComponent(INFLUX_BUCKET)}`
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${INFLUX_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          predicate: `_measurement="sensor_reading"`,
+          start: '1970-01-01T00:00:00Z',
+          stop: cutoff,
+        }),
+      })
+      if (response.ok) {
+        console.log(`[ingest] retention: deleted data before ${cutoff}`)
+      } else {
+        const errText = await response.text()
+        console.warn(`[ingest] retention delete failed (non-critical): ${errText.slice(0, 100)}`)
+      }
+    } catch (err: any) {
+      console.warn(`[ingest] retention policy error (non-critical): ${err.message}`)
     }
   }
 }

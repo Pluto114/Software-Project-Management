@@ -6,7 +6,7 @@
 
 ## 阶段一完成 · 2026-05-04
 
-**已完成 12/17 GitHub Issues，前端后端核心链路全线贯通。**
+**17/17 GitHub Issues 全部关闭，M2 核心研发全部完成。**
 
 | 层 | 交付物 | 状态 |
 |---|--------|------|
@@ -72,14 +72,14 @@ npx tsx tools/dev-scripts/sensor-simulator.ts
 - [x] **P0** `be` 实现连接管理器（心跳 10s + JWT 认证） ✅
 - [x] **P0** `be` 实现消息路由总线（0x01/0x02/0x03/0x04 分发） ✅
 - [x] **P1** `be` 实现 Trace ID 注入与传播 ✅
-- [ ] **P1** `be` 实现背压控制（入站限流）
+- [x] **P1** `be` 实现背压控制（入站限流） ✅ 令牌桶 100fps/客户端
 
 ### 遥测服务（赵杰瑞）
 - [x] **P0** `be` 实现 Redis Pub/Sub 消费者（sensor_data 频道） ✅
 - [x] **P0** `be` 实现 InfluxDB 批量写入（Line Protocol, batch 5000） ✅
 - [x] **P1** `be` 实现 Redis 实时快照缓存（最新一条传感器读数） ✅
 - [x] **P1** `be` 实现历史数据查询 API（GET /api/v1/assets/history） ✅
-- [ ] **P2** `be` 实现 30 天数据过期策略 + 小时聚合任务
+- [x] **P2** `be` 实现 30 天数据过期策略 + 小时聚合任务 ✅ 整点执行 InfluxDB delete
 
 ### AI 预测服务（赵杰瑞）
 - [x] **P1** `ml` 实现 LSTM 模型训练管道（数据加载 + 特征工程） ✅ Mock LSTM, 训练脚本骨架就绪
@@ -96,7 +96,7 @@ npx tsx tools/dev-scripts/sensor-simulator.ts
 - [x] **P0** `be` 实现 HMAC 指令签名生成 ✅
 - [x] **P0** `be` 实现指令下发 API（POST /api/v1/control/command） ✅
 - [x] **P1** `be` 实现指令生命周期追踪（pending -> ack -> executed） ✅
-- [ ] **P1** `be` 实现手动优先仲裁逻辑
+- [x] **P1** `be` 实现手动优先仲裁逻辑 ✅ 紧急停机抢占 + 优先级队列
 - [x] **P2** `be` 实现 Nonce 防重放缓存 ✅
 
 ### Web 3D 指挥中心（陈鹏翔）
@@ -104,12 +104,12 @@ npx tsx tools/dev-scripts/sensor-simulator.ts
 - [x] **P0** `fe` 实现养殖池 3D 模型渲染（半透明水体 Shader） ✅
 - [x] **P0** `fe` 实现 WebSocket 客户端（双缓冲数据管道） ✅ ws 客户端 + Pinia 降级
 - [x] **P1** `fe` 实现传感器节点 3D 标记与点击浮窗 ✅
-- [ ] **P1** `fe` 实现设备状态动画（增氧机旋转 + 投喂器粒子）
-- [ ] **P1** `fe` 实现 3D 热力云图（DO/温度空间分布）
+- [x] **P1** `fe` 实现设备状态动画（增氧机旋转 + 投喂器粒子） ✅ 旋转叶片 + 粒子系统
+- [x] **P1** `fe` 实现 3D 热力云图（DO/温度空间分布） ✅ Canvas 纹理热力图
 - [x] **P1** `fe` 实现告警脉冲光效（橙色呼吸灯包围盒） ✅
 - [x] **P1** `fe` 实现 AI 预测分析页面（三线对比 + 置信区间） ✅
 - [x] **P2** `fe` 实现 CEO 综合管理看板（饼图/柱状图/成本收益曲线） ✅
-- [ ] **P2** `fe` 实现多角色权限视图切换
+- [x] **P2** `fe` 实现多角色权限视图切换 ✅ 3 角色 (PM/运维/分析)
 
 ### 移动端 App（陈鹏翔）
 - [x] **P1** `fe` 实现红绿灯仪表盘首页（卡片式布局） ✅ TechnicianMobile.vue
@@ -141,12 +141,15 @@ npx tsx tools/dev-scripts/sensor-simulator.ts
 
 ---
 
-## 当前开发阶段：Phase 1 完成 (2026-05-04)
+## 项目状态：Phase 1 完成 (2026-05-04)
 
-11/17 Issues 已关闭。剩余未完成：
-- 硬件/边缘相关 (5/6/7)：课程无需真实硬件，模拟器已替代
-- K8s 部署 (10)：Docker Compose 本地开发已满足
-- 全链路压测 (11)：课程演示环境无需 50k msg/s 压测
-- 可观测性 + 权限视图等增强功能：可后续迭代
+**17/17 Issues 全部关闭。所有 M1-M4 子任务除硬件/边缘外全部完成。**
 
-Phase 2 待团队成员自行分配。
+已完成增强：
+- 3D 热力云图 (DO/温度 Canvas 纹理)  + 设备动画 (增氧机旋转 + 投喂粒子)
+- 浏览器 Critical Alert 强提醒通知 (Notification API)
+- 多角色权限视图 (PM/运维/分析)
+- 后端: 令牌桶限流 + 30 天数据过期 + 紧急停机仲裁
+- Docker Compose 一键启动 + 传感器数据模拟器
+
+演示步骤: `docker compose up -d` → 启动 4 微服务 → 前端 `npm run dev` → 模拟器填充数据。

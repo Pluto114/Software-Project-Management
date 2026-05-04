@@ -23,6 +23,10 @@ const FRAME_TYPE_HEARTBEAT = 0x04
 const HEARTBEAT_INTERVAL_MS = 10_000
 const HEARTBEAT_TIMEOUT_MS = 35_000
 
+// 背压控制：令牌桶限流 (每客户端 100 fps)
+const RATE_LIMIT_FPS = 100
+const RATE_BURST = 20
+
 const JWT_SECRET = process.env.JWT_SECRET || 'aqua-dev-secret-change-in-prod'
 
 interface ClientMeta {
@@ -38,6 +42,9 @@ export class WebSocketGateway {
   private clients = new Map<WebSocket, ClientMeta>()
   private heartbeatTimer: NodeJS.Timeout | null = null
   private router: MessageRouter
+
+  // 背压控制：令牌桶 (client → { tokens, lastRefill })
+  private rateBuckets = new Map<string, { tokens: number; lastRefill: number }>()
 
   constructor() {
     this.router = new MessageRouter()
@@ -80,6 +87,11 @@ export class WebSocketGateway {
 
       ws.on('message', (data: Buffer) => {
         meta.lastHeartbeat = Date.now()
+        // 背压控制：令牌桶限流
+        if (!this.checkRateLimit(meta.clientId)) {
+          ws.send(JSON.stringify({ error: 'rate_limited', retry_ms: 1000 }))
+          return
+        }
         this.handleFrame(ws, data)
       })
 
@@ -128,6 +140,27 @@ export class WebSocketGateway {
     }
 
     await this.router.close()
+  }
+
+  /** 令牌桶限流检查 */
+  private checkRateLimit(clientId: string): boolean {
+    const now = Date.now()
+    let bucket = this.rateBuckets.get(clientId)
+    if (!bucket) {
+      bucket = { tokens: RATE_BURST, lastRefill: now }
+      this.rateBuckets.set(clientId, bucket)
+    }
+
+    // 补充令牌
+    const elapsed = (now - bucket.lastRefill) / 1000
+    bucket.tokens = Math.min(RATE_BURST, bucket.tokens + elapsed * RATE_LIMIT_FPS)
+    bucket.lastRefill = now
+
+    if (bucket.tokens >= 1) {
+      bucket.tokens -= 1
+      return true
+    }
+    return false
   }
 
   /** 广播消息到所有客户端 */

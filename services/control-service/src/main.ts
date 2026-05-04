@@ -23,6 +23,8 @@ async function main() {
 
   app.post('/api/v1/control/command', (req, res) => ctrl.issueCommand(req, res))
   app.get('/api/v1/control/status', (req, res) => ctrl.getStatus(req, res))
+  app.get('/api/v1/control/override/status', (req, res) => ctrl.getOverrideStatus(req, res))
+  app.post('/api/v1/control/override/clear', (req, res) => ctrl.clearOverride(req, res))
 
   const server = app.listen(PORT, () => {
     console.log(`[control-service] listening on port ${PORT}`)
