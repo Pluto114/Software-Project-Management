@@ -1,5 +1,20 @@
 <template>
   <div ref="containerRef" class="three-container">
+    <!-- 视角控制按钮 -->
+    <div class="view-controls">
+      <button class="vc-btn" :class="{ active: currentView === 'free' }" @click="setView('free')" title="自由视角">
+        <span class="vc-icon">◎</span>
+      </button>
+      <button class="vc-btn" :class="{ active: currentView === 'top' }" @click="setView('top')" title="俯瞰">
+        <span class="vc-icon">▣</span>
+      </button>
+      <button class="vc-btn" :class="{ active: currentView === 'side' }" @click="setView('side')" title="侧视">
+        <span class="vc-icon">▯</span>
+      </button>
+      <button class="vc-btn" :class="{ active: currentView === 'section' }" @click="setView('section')" title="剖面">
+        <span class="vc-icon">◫</span>
+      </button>
+    </div>
     <div class="three-overlay-hint">
       <span>拖拽旋转 · 滚轮缩放 · 右键平移</span>
     </div>
@@ -11,9 +26,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useSensorStore } from '../stores/sensorData'
-
 const containerRef = ref<HTMLDivElement>()
 const store = useSensorStore()
+
+const currentView = ref('free')
 
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
@@ -23,6 +39,7 @@ let animationId: number
 let poolMesh: THREE.Group
 let waterSurface: THREE.Mesh
 let sensorMarkers: THREE.Mesh[] = []
+let sensorLines: THREE.Line[] = []
 let alertRing: THREE.Mesh | null = null
 let heatMapTexture: THREE.CanvasTexture | null = null
 let heatMapCanvas: HTMLCanvasElement
@@ -30,9 +47,11 @@ let heatMapCtx: CanvasRenderingContext2D
 let aeratorBlades: THREE.Group | null = null
 let feederParticles: THREE.Points | null = null
 let feederParticleData: { velocity: THREE.Vector3; life: number }[] = []
+let cloudParticles: THREE.Points | null = null
+let cloudParticleData: { baseX: number; baseZ: number; y: number; phase: number; speed: number }[] = []
 const PARTICLE_COUNT = 80
+const CLOUD_COUNT = 120
 
-// 传感器在池面 UV 坐标 (x: -2.4..2.4 → u: 0..1, z: -1.4..1.4 → v: 0..1)
 const sensorUV: [number, number, string][] = [
   [-1.5, -0.8, 'DO'], [1.5, -0.8, 'pH'],
   [-1.5, 0.8, 'TEMP'], [1.5, 0.8, 'DO'],
@@ -44,10 +63,12 @@ onMounted(() => {
   initScene()
   createPoolModel()
   createSensorMarkers()
+  createSensorConnectingLines()
   createLighting()
   createGrid()
   createAerator()
   createFeederParticles()
+  createCloudParticles()
   createHeatMap()
   animate()
   window.addEventListener('resize', onResize)
@@ -65,8 +86,8 @@ function initScene() {
   const h = containerRef.value!.clientHeight
 
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x0A0A0B)
-  scene.fog = new THREE.Fog(0x0A0A0B, 15, 50)
+  scene.background = new THREE.Color(0x0a0e17)
+  scene.fog = new THREE.Fog(0x0a0e17, 15, 50)
 
   camera = new THREE.PerspectiveCamera(50, w / h, 0.5, 100)
   camera.position.set(8, 6, 10)
@@ -91,6 +112,53 @@ function initScene() {
   controls.update()
 }
 
+// ---- 视角切换 ----
+function setView(view: string) {
+  currentView.value = view
+  const target = new THREE.Vector3(0, 0, 0)
+  let pos: THREE.Vector3
+
+  switch (view) {
+    case 'top':
+      pos = new THREE.Vector3(0, 12, 0.5)
+      break
+    case 'side':
+      pos = new THREE.Vector3(0, 2, 8)
+      break
+    case 'section':
+      pos = new THREE.Vector3(5, 3, 5)
+      break
+    default:
+      pos = new THREE.Vector3(8, 6, 10)
+      break
+  }
+
+  // 手动平滑过渡
+  const startPos = camera.position.clone()
+  const startTarget = controls.target.clone()
+  const startTime = performance.now()
+  const duration = 1200
+
+  function animateView(now: number) {
+    const elapsed = now - startTime
+    const t = Math.min(1, elapsed / duration)
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t // easeInOutQuad
+    camera.position.lerpVectors(startPos, pos, ease)
+    controls.target.lerpVectors(startTarget, target, ease)
+    if (t < 1) {
+      requestAnimationFrame(animateView)
+    }
+  }
+  requestAnimationFrame(animateView)
+
+  if (view === 'top') {
+    controls.maxPolarAngle = 0.1
+  } else {
+    controls.maxPolarAngle = Math.PI / 2 + 0.3
+  }
+}
+
+// ---- 光照 ----
 function createLighting() {
   const ambient = new THREE.AmbientLight(0x1a2a3a, 1.5)
   scene.add(ambient)
@@ -107,20 +175,21 @@ function createLighting() {
   dirLight.shadow.camera.bottom = -10
   scene.add(dirLight)
 
-  const blueLight = new THREE.PointLight(0x00F2FF, 8, 6)
+  const blueLight = new THREE.PointLight(0x00d4ff, 8, 6)
   blueLight.position.set(0, 1.5, 0)
   scene.add(blueLight)
 
-  const orangeLight = new THREE.PointLight(0xFF8C00, 0, 8)
+  const orangeLight = new THREE.PointLight(0xff6b35, 0, 8)
   orangeLight.name = 'alertLight'
   scene.add(orangeLight)
 }
 
+// ---- 池模型 ----
 function createPoolModel() {
   poolMesh = new THREE.Group()
 
   const floorGeo = new THREE.BoxGeometry(5, 0.2, 3)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a3a4a, roughness: 0.3, metalness: 0.7 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.3, metalness: 0.7 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.position.y = -1.1
   floor.receiveShadow = true
@@ -142,7 +211,6 @@ function createPoolModel() {
     poolMesh.add(wall)
   }
 
-  // 水面 — 使用 CanvasTexture 支持热力云图
   heatMapCanvas = document.createElement('canvas')
   heatMapCanvas.width = 512
   heatMapCanvas.height = 256
@@ -155,10 +223,10 @@ function createPoolModel() {
   const waterMat = new THREE.MeshPhysicalMaterial({
     map: heatMapTexture,
     color: 0xffffff,
-    roughness: 0.15,
-    metalness: 0.1,
+    roughness: 0.12,
+    metalness: 0.05,
     transparent: true,
-    opacity: 0.65,
+    opacity: 0.7,
     envMapIntensity: 0.5,
     clearcoat: 0.3,
   })
@@ -168,7 +236,6 @@ function createPoolModel() {
   waterSurface.name = 'waterSurface'
   poolMesh.add(waterSurface)
 
-  // 池底网格
   const gridHelper = new THREE.PolarGridHelper(2.5, 32, 20, 64, 0x1a3a5a, 0x1a3a5a)
   gridHelper.position.y = -0.98
   poolMesh.add(gridHelper)
@@ -177,7 +244,7 @@ function createPoolModel() {
 
   // 告警环
   const ringGeo = new THREE.TorusGeometry(3.2, 0.03, 16, 100)
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xFF8C00, transparent: true, opacity: 0 })
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xff6b35, transparent: true, opacity: 0 })
   alertRing = new THREE.Mesh(ringGeo, ringMat)
   alertRing.rotation.x = -Math.PI / 2
   alertRing.position.y = 1.42
@@ -185,6 +252,7 @@ function createPoolModel() {
   scene.add(alertRing)
 }
 
+// ---- 传感器标记 + 连接线 ----
 function createSensorMarkers() {
   const positions: [number, number, number][] = [
     [-1.5, 1.5, -0.8], [1.5, 1.5, -0.8],
@@ -193,10 +261,11 @@ function createSensorMarkers() {
   ]
 
   for (const [x, y, z] of positions) {
+    // 传感器光球
     const sphereGeo = new THREE.SphereGeometry(0.12, 16, 16)
     const sphereMat = new THREE.MeshStandardMaterial({
-      color: 0x00F2FF,
-      emissive: 0x00F2FF,
+      color: 0x00d4ff,
+      emissive: 0x00d4ff,
       emissiveIntensity: 0.8,
       roughness: 0.3,
     })
@@ -206,19 +275,49 @@ function createSensorMarkers() {
     sensorMarkers.push(sphere)
     poolMesh.add(sphere)
 
+    // 光柱连接线
     const lineGeo = new THREE.CylinderGeometry(0.02, 0.02, y - 1.4, 4)
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0x00F2FF, transparent: true, opacity: 0.4 })
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.4 })
     const line = new THREE.Mesh(lineGeo, lineMat)
     line.position.set(x, (y + 1.4) / 2, z)
     poolMesh.add(line)
   }
 }
 
+// ---- 传感器间连接线 ----
+function createSensorConnectingLines() {
+  const sensorPositions = [
+    new THREE.Vector3(-1.5, 1.55, -0.8),
+    new THREE.Vector3(1.5, 1.55, -0.8),
+    new THREE.Vector3(-1.5, 1.55, 0.8),
+    new THREE.Vector3(1.5, 1.55, 0.8),
+    new THREE.Vector3(0, 1.55, 0),
+    new THREE.Vector3(-0.8, 1.55, -0.3),
+  ]
+
+  // 环形连接
+  const edges = [[0, 1], [0, 2], [1, 3], [2, 3], [4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 4]]
+
+  for (const [a, b] of edges) {
+    const points = [sensorPositions[a], sensorPositions[b]]
+    const geo = new THREE.BufferGeometry().setFromPoints(points)
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x00d4ff,
+      transparent: true,
+      opacity: 0.18,
+      linewidth: 0.5,
+    })
+    const line = new THREE.Line(geo, mat)
+    line.name = 'sensorLink'
+    sensorLines.push(line)
+    poolMesh.add(line)
+  }
+}
+
+// ---- 增氧机(含转速联动) ----
 function createAerator() {
-  // 增氧机放在池右侧
   aeratorBlades = new THREE.Group()
 
-  // 主体立柱
   const bodyGeo = new THREE.CylinderGeometry(0.15, 0.2, 0.8, 16)
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a5a6a, roughness: 0.25, metalness: 0.8 })
   const body = new THREE.Mesh(bodyGeo, bodyMat)
@@ -226,7 +325,9 @@ function createAerator() {
   body.castShadow = true
   aeratorBlades.add(body)
 
-  // 旋转叶片 (4 片)
+  // 旋转叶片 (4片，用Group包裹方便旋转)
+  const bladeGroup = new THREE.Group()
+  bladeGroup.name = 'bladeGroup'
   const bladeGeo = new THREE.BoxGeometry(0.6, 0.04, 0.12)
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.2, metalness: 0.9 })
   for (let i = 0; i < 4; i++) {
@@ -234,10 +335,10 @@ function createAerator() {
     blade.rotation.y = (Math.PI / 4) * i
     blade.position.y = 0.85
     blade.castShadow = true
-    aeratorBlades.add(blade)
+    bladeGroup.add(blade)
   }
+  aeratorBlades.add(bladeGroup)
 
-  // 顶部电机
   const motorGeo = new THREE.CylinderGeometry(0.18, 0.2, 0.3, 16)
   const motorMat = new THREE.MeshStandardMaterial({ color: 0x556677, roughness: 0.2, metalness: 0.9 })
   const motor = new THREE.Mesh(motorGeo, motorMat)
@@ -250,6 +351,7 @@ function createAerator() {
   scene.add(aeratorBlades)
 }
 
+// ---- 投喂粒子 ----
 function createFeederParticles() {
   const geometry = new THREE.BufferGeometry()
   const positions = new Float32Array(PARTICLE_COUNT * 3)
@@ -287,6 +389,70 @@ function createFeederParticles() {
   scene.add(feederParticles)
 }
 
+// ---- 体积云粒子 ----
+function createCloudParticles() {
+  const geometry = new THREE.BufferGeometry()
+  const positions = new Float32Array(CLOUD_COUNT * 3)
+  const colorsArr = new Float32Array(CLOUD_COUNT * 3)
+
+  cloudParticleData = []
+
+  for (let i = 0; i < CLOUD_COUNT; i++) {
+    // 分布在池面上方 2-5 单位
+    const baseX = (Math.random() - 0.5) * 6
+    const baseZ = (Math.random() - 0.5) * 4
+    const y = 2.5 + Math.random() * 3
+
+    positions[i * 3] = baseX
+    positions[i * 3 + 1] = y
+    positions[i * 3 + 2] = baseZ
+
+    colorsArr[i * 3] = 0.7 + Math.random() * 0.3
+    colorsArr[i * 3 + 1] = 0.8 + Math.random() * 0.2
+    colorsArr[i * 3 + 2] = 0.9 + Math.random() * 0.1
+
+    cloudParticleData.push({
+      baseX, baseZ, y,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.7,
+    })
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3))
+
+  // 使用Sprite纹理做云雾
+  const spriteCanvas = document.createElement('canvas')
+  spriteCanvas.width = 32
+  spriteCanvas.height = 32
+  const sctx = spriteCanvas.getContext('2d')!
+  const gradient = sctx.createRadialGradient(16, 16, 0, 16, 16, 16)
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)')
+  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.3)')
+  gradient.addColorStop(0.6, 'rgba(200, 220, 255, 0.08)')
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  sctx.fillStyle = gradient
+  sctx.fillRect(0, 0, 32, 32)
+
+  const spriteTexture = new THREE.CanvasTexture(spriteCanvas)
+  spriteTexture.needsUpdate = true
+
+  const material = new THREE.PointsMaterial({
+    size: 0.6,
+    map: spriteTexture,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.25,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+
+  cloudParticles = new THREE.Points(geometry, material)
+  cloudParticles.name = 'cloudParticles'
+  scene.add(cloudParticles)
+}
+
+// ---- 热力图 ----
 function createHeatMap() {
   drawHeatMap()
 }
@@ -296,14 +462,16 @@ function drawHeatMap() {
   const w = heatMapCanvas.width
   const h = heatMapCanvas.height
 
-  // 底色 — 深蓝水体
-  ctx.fillStyle = '#003355'
+  // 底色 - 根据浑浊度调整水体颜色
+  const turbidity = getTurbidity()
+  const r = Math.floor(0 + turbidity * 20)
+  const g = Math.floor(51 + turbidity * 15)
+  const b = Math.floor(85 - turbidity * 10)
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`
   ctx.fillRect(0, 0, w, h)
 
-  // 用 store 中的传感器读数绘制热力点
   const readings = store.latestReadings
   if (readings.size === 0) {
-    // 默认演示点
     drawHeatSpot(ctx, w, h, -1.5, -0.8, 5.8, 'DO')
     drawHeatSpot(ctx, w, h, 1.5, -0.8, 7.6, 'pH')
     drawHeatSpot(ctx, w, h, -1.5, 0.8, 27.2, 'TEMP')
@@ -312,8 +480,6 @@ function drawHeatMap() {
     drawHeatSpot(ctx, w, h, -0.8, -0.3, 26.8, 'TEMP')
   } else {
     for (const [_, reading] of readings) {
-      const sx = reading.sensorId
-      // 根据 sensorId 估算池中位置 (简化映射)
       const uv = sensorUV.find(([_, __, t]) => reading.type.startsWith(t)) || [0, 0, 'DO']
       drawHeatSpot(ctx, w, h, uv[0], uv[1], reading.value, reading.type)
     }
@@ -322,13 +488,18 @@ function drawHeatMap() {
   if (heatMapTexture) heatMapTexture.needsUpdate = true
 }
 
+function getTurbidity(): number {
+  const nhReading = store.latestReadings.get('P01-NH3N') || store.latestReadings.get('P02-NH3N')
+  if (!nhReading) return 0.3
+  return Math.min(1, nhReading.value / 0.5)
+}
+
 function drawHeatSpot(
   ctx: CanvasRenderingContext2D,
   canvasW: number, canvasH: number,
   poolX: number, poolZ: number,
   value: number, type: string,
 ) {
-  // 池坐标 → 画布坐标
   const u = (poolX + 2.4) / 4.8
   const v = (poolZ + 1.4) / 2.8
   const cx = u * canvasW
@@ -336,13 +507,11 @@ function drawHeatSpot(
 
   let color: string
   if (type === 'DO' || type === 'do') {
-    // DO: <4.5 red, 4.5-5.5 yellow, >5.5 green
-    if (value < 4.5) color = '255, 68, 68'
+    if (value < 4.5) color = '255, 23, 68'
     else if (value < 5.5) color = '255, 180, 60'
     else color = '0, 220, 130'
   } else if (type === 'TEMP' || type === 'temp') {
-    // Temp: >28.5 red, 26-28.5 green, <24 blue
-    if (value > 28.5) color = '255, 68, 68'
+    if (value > 28.5) color = '255, 23, 68'
     else if (value > 26) color = '0, 220, 130'
     else color = '60, 140, 255'
   } else {
@@ -360,12 +529,14 @@ function drawHeatSpot(
   ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2)
 }
 
+// ---- 网格 ----
 function createGrid() {
   const gridHelper = new THREE.GridHelper(20, 30, 0x1a2a30, 0x0d1518)
   gridHelper.position.y = -1.3
   scene.add(gridHelper)
 }
 
+// ---- 动画循环 ----
 let time = 0
 let heatMapTimer = 0
 function animate() {
@@ -385,17 +556,31 @@ function animate() {
     const scale = 1 + Math.sin(time * 4 + i) * 0.15
     sensorMarkers[i].scale.setScalar(scale)
 
-    // 根据告警等级变色
     const mat = sensorMarkers[i].material as THREE.MeshStandardMaterial
     if (store.alertLevel === 'red') {
-      mat.color.setHex(0xFF4444)
-      mat.emissive.setHex(0xFF4444)
+      mat.color.setHex(0xff1744)
+      mat.emissive.setHex(0xff1744)
     } else if (store.alertLevel === 'yellow') {
-      mat.color.setHex(0xFF8C00)
-      mat.emissive.setHex(0xFF8C00)
+      mat.color.setHex(0xff6b35)
+      mat.emissive.setHex(0xff6b35)
     } else {
-      mat.color.setHex(0x00F2FF)
-      mat.emissive.setHex(0x00F2FF)
+      mat.color.setHex(0x00d4ff)
+      mat.emissive.setHex(0x00d4ff)
+    }
+  }
+
+  // 传感器连接线随告警变色
+  for (const line of sensorLines) {
+    const mat = line.material as THREE.LineBasicMaterial
+    if (store.alertLevel === 'red') {
+      mat.color.setHex(0xff1744)
+      mat.opacity = 0.35
+    } else if (store.alertLevel === 'yellow') {
+      mat.color.setHex(0xff6b35)
+      mat.opacity = 0.25
+    } else {
+      mat.color.setHex(0x00d4ff)
+      mat.opacity = 0.18
     }
   }
 
@@ -405,23 +590,24 @@ function animate() {
     const target = store.alertLevel === 'red' ? 0.9 : store.alertLevel === 'yellow' ? 0.5 : 0
     mat.opacity += (target - mat.opacity) * 0.08
     if (target > 0) {
-      mat.color.setHex(store.alertLevel === 'red' ? 0xFF4444 : 0xFF8C00)
+      mat.color.setHex(store.alertLevel === 'red' ? 0xff1744 : 0xff6b35)
     }
   }
 
-  // 增氧机旋转
+  // 增氧机旋转 — 转速联动 DO 值
   if (aeratorBlades) {
-    // 叶片旋转 (模拟运转)
-    const children = aeratorBlades.children
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i]
-      if (child.type === 'Mesh' && child.position.y > 0.8) {
-        child.rotation.y += 0.06
+    const bladeGroup = aeratorBlades.getObjectByName('bladeGroup')
+    if (bladeGroup) {
+      let rpmFactor = 1.0
+      const doReading = store.latestReadings.get('P01-DO')
+      if (doReading) {
+        rpmFactor = doReading.value < 4.5 ? 1.8 : doReading.value < 5.5 ? 1.3 : 1.0
       }
+      bladeGroup.rotation.y += 0.06 * rpmFactor
     }
   }
 
-  // 投喂粒子动画 (仅在模拟投喂时可见)
+  // 投喂粒子
   if (feederParticles && feederParticles.visible) {
     const mat = feederParticles.material as THREE.PointsMaterial
     const positions = (feederParticles.geometry as THREE.BufferGeometry).attributes.position.array as Float32Array
@@ -434,7 +620,6 @@ function animate() {
 
       feederParticleData[i].life -= 0.005
 
-      // 重置死亡粒子
       if (positions[idx + 1] < -0.5 || feederParticleData[i].life <= 0) {
         positions[idx] = (Math.random() - 0.5) * 0.4
         positions[idx + 1] = 1.8
@@ -443,12 +628,23 @@ function animate() {
       }
     }
     (feederParticles.geometry as THREE.BufferGeometry).attributes.position.needsUpdate = true
-
-    // 粒子淡入淡出
     mat.opacity += ((0.6 - mat.opacity) * 0.05)
   }
 
-  // 热力云图定期刷新 (每 60 帧 ≈ 1s)
+  // 体积云粒子漂移
+  if (cloudParticles) {
+    const positions = (cloudParticles.geometry as THREE.BufferGeometry).attributes.position.array as Float32Array
+    for (let i = 0; i < CLOUD_COUNT; i++) {
+      const idx = i * 3
+      const cd = cloudParticleData[i]
+      positions[idx] = cd.baseX + Math.sin(time * cd.speed + cd.phase) * 0.8
+      positions[idx + 1] = cd.y + Math.cos(time * cd.speed * 0.7 + cd.phase) * 0.3
+      positions[idx + 2] = cd.baseZ + Math.cos(time * cd.speed * 0.5 + cd.phase) * 0.6
+    }
+    (cloudParticles.geometry as THREE.BufferGeometry).attributes.position.needsUpdate = true
+  }
+
+  // 热力图刷新
   if (heatMapTimer % 60 === 0) {
     drawHeatMap()
   }
@@ -458,8 +654,8 @@ function animate() {
   if (alertLight) {
     const targetIntensity = store.alertLevel === 'red' ? 12 : store.alertLevel === 'yellow' ? 5 : 0
     alertLight.intensity += (targetIntensity - alertLight.intensity) * 0.1
-    if (store.alertLevel === 'red') alertLight.color.setHex(0xFF4444)
-    else alertLight.color.setHex(0xFF8C00)
+    if (store.alertLevel === 'red') alertLight.color.setHex(0xff1744)
+    else alertLight.color.setHex(0xff6b35)
   }
 
   renderer.render(scene, camera)
@@ -491,9 +687,37 @@ function onResize() {
   transform: translateX(-50%);
   font-size: 11px;
   color: var(--text-dim);
-  background: rgba(10, 10, 11, 0.7);
+  background: rgba(10, 14, 23, 0.7);
   padding: 4px 14px;
   border-radius: 12px;
   pointer-events: none;
 }
+
+/* 视角控制 */
+.view-controls {
+  position: absolute;
+  bottom: 40px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+.vc-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(10, 14, 23, 0.8);
+  color: var(--text-dim);
+  font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.vc-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+.vc-btn.active {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(0, 212, 255, 0.1);
+}
+.vc-icon { line-height: 1; }
 </style>
