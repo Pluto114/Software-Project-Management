@@ -192,9 +192,10 @@ function viewPoolDetail(id: string) {
 
 function exportData() {
   const rows = filteredPoolData.value
+  const BOM = '﻿'
   const csv = ['池号,基地,鱼种,存池量,DO(mg/L),FCR,风险,估损']
   rows.forEach(r => csv.push([r.id, r.base, r.breed, r.count, r.do, r.fcr, r.riskText, r.estimatedLoss].join(',')))
-  const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob([BOM + csv.join('\n')], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url; a.download = `养殖池资产报表_${new Date().toISOString().slice(0,10)}.csv`
@@ -339,7 +340,7 @@ onUnmounted(() => charts.forEach(c => c.dispose()))
 }
 
 /* KPI 卡片 */
-.kpi-row { display: flex; gap: 10px; }
+.kpi-row { display: flex; gap: 10px; flex-shrink: 0; }
 .kpi-card {
   flex: 1; background: var(--bg-panel); border: 1px solid var(--border-color);
   border-radius: 10px; padding: 16px; text-align: center;
@@ -381,15 +382,15 @@ onUnmounted(() => charts.forEach(c => c.dispose()))
 .export-btn:hover { background: rgba(0,230,118,0.1); box-shadow: 0 0 12px rgba(0,230,118,0.15); }
 
 /* 图表区 */
-.ceo-charts { display: flex; gap: 10px; flex: 1; min-height: 0; }
-.chart-box { flex: 1; }
+.ceo-charts { display: flex; gap: 10px; flex-shrink: 0; }
+.chart-box { flex: 1; min-width: 0; }
 .chart-lg { width: 100%; height: 280px; }
 .chart-legend-inline { display: flex; align-items: center; gap: 3px; font-size: 10px; color: var(--text-dim); }
 .legend-dot-inline { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-.ceo-bottom { display: flex; gap: 10px; min-height: 200px; }
-.table-box { flex: 2; overflow-y: auto; }
+.ceo-bottom { display: flex; gap: 10px; flex-shrink: 0; }
+.table-box { flex: 2; overflow-y: auto; max-height: 320px; }
 .table-count { font-size: 10px; color: var(--text-dim); }
-.pie-box { flex: 1; display: flex; flex-direction: column; }
+.pie-box { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
 /* 表格 */
 .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
