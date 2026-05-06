@@ -27,9 +27,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 各角色可访问的路由
   const roleRouteAccess: Record<Role, string[]> = {
-    admin: ['/', '/ai-analysis', '/ceo', '/mobile'],
-    operator: ['/', '/mobile'],
-    viewer: ['/ai-analysis', '/ceo'],
+    admin: ['/', '/ai-analysis', '/ceo', '/mobile', '/observability'],
+    operator: ['/', '/mobile', '/observability'],
+    viewer: ['/ai-analysis', '/ceo', '/observability'],
   }
 
   function canAccess(path: string): boolean {

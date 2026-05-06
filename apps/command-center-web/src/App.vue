@@ -25,6 +25,7 @@
           <router-link v-if="auth.canAccess('/ai-analysis')" to="/ai-analysis" :class="{ active: route.path === '/ai-analysis' }">AI 分析</router-link>
           <router-link v-if="auth.canAccess('/ceo')" to="/ceo" :class="{ active: route.path === '/ceo' }">管理看板</router-link>
           <router-link v-if="auth.canAccess('/mobile')" to="/mobile" :class="{ active: route.path === '/mobile' }">移动端</router-link>
+          <router-link v-if="auth.canAccess('/observability')" to="/observability" :class="{ active: route.path === '/observability' }">运维监控</router-link>
         </nav>
         <select class="role-switcher" :value="auth.currentRole" @change="switchRole(($event.target as HTMLSelectElement).value)">
           <option value="admin">PM 视角</option>

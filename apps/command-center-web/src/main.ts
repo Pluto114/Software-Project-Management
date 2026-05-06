@@ -6,6 +6,7 @@ import DigitalTwinDashboard from './views/DigitalTwinDashboard.vue'
 import AIAnalysis from './views/AIAnalysis.vue'
 import CEODashboard from './views/CEODashboard.vue'
 import TechnicianMobile from './views/TechnicianMobile.vue'
+import ObservabilityDashboard from './views/ObservabilityDashboard.vue'
 import './styles/global.css'
 
 const routes = [
@@ -13,6 +14,7 @@ const routes = [
   { path: '/ai-analysis', name: 'ai-analysis', component: AIAnalysis, meta: { roles: ['admin', 'viewer'] } },
   { path: '/ceo', name: 'ceo-dashboard', component: CEODashboard, meta: { roles: ['admin', 'viewer'] } },
   { path: '/mobile', name: 'technician-mobile', component: TechnicianMobile, meta: { roles: ['admin', 'operator'] } },
+  { path: '/observability', name: 'observability', component: ObservabilityDashboard, meta: { roles: ['admin', 'operator'] } },
 ]
 
 const router = createRouter({
