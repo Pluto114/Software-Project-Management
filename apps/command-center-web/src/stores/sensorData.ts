@@ -83,6 +83,7 @@ export const useSensorStore = defineStore('sensor', () => {
     'P02': { DO: 5.3, pH: 7.4, TEMP: 27.8, NH3N: 0.18 },
   }
   function startSimulation() {
+    if (simTimer !== null) return // already running
     dataSource.value = 'sim'
     const poolIds = ['P01', 'P02']
     const sensorTypes = ['DO', 'pH', 'TEMP', 'NH3N'] as const
@@ -157,6 +158,7 @@ export const useSensorStore = defineStore('sensor', () => {
       clearInterval(simTimer)
       simTimer = null
     }
+    dataSource.value = 'none'
   }
 
   // 切换告警等级（Demo 用）

@@ -429,13 +429,17 @@ function initMainChart(): echarts.ECharts {
 
 function initSmallChart(refEl: HTMLDivElement, name: string, color: string, dataArr: number[], threshold?: { yAxis: number; color: string; label: string }): echarts.ECharts {
   const chart = echarts.init(refEl, 'dark')
+  // Map hex color to rgba for gradient fill
+  const gradientTopColor = color === '#ff6b35' || color === '#FF8C00' ? 'rgba(255,140,0,0.15)'
+    : color === '#00e676' || color === '#00E676' ? 'rgba(0,230,118,0.15)'
+    : 'rgba(0,212,255,0.15)'
   const series: any[] = [{
     type: 'line', data: dataArr,
     lineStyle: { color, width: 1.5 },
     symbol: 'none', smooth: true,
     areaStyle: {
       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: color.replace(')', ', 0.15)').replace('rgb', 'rgba').replace('#FF8C00', 'rgba(255,140,0').replace('#00E676', 'rgba(0,230,118') },
+        { offset: 0, color: gradientTopColor },
         { offset: 1, color: 'rgba(255,255,255,0)' },
       ]),
     },

@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { useSensorStore } from '../stores/sensorData'
 
@@ -175,6 +175,12 @@ function addLogEntry() {
   }
   logEntries.value.unshift({ time, level, levelTag, msg })
   if (logEntries.value.length > 50) logEntries.value.pop()
+  // Auto-scroll to top (newest entries)
+  nextTick(() => {
+    if (logStreamRef.value) {
+      logStreamRef.value.scrollTop = 0
+    }
+  })
 }
 
 // ---- 图表初始化 ----

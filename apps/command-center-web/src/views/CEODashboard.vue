@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
+import { useNotification } from '../composables/useNotification'
 
 const profitChartRef = ref<HTMLDivElement>()
 const baseCompareChartRef = ref<HTMLDivElement>()
@@ -186,8 +187,17 @@ const filteredPoolData = computed(() => {
   })
 })
 
+const { notify, ensurePermission } = useNotification()
+
 function viewPoolDetail(id: string) {
-  // 跳转到详情页
+  const row = poolData.value.find(r => r.id === id)
+  if (row) {
+    notify(
+      `养殖池 ${row.id} 详情`,
+      `${row.base} · ${row.breed} | DO: ${row.do}mg/L | FCR: ${row.fcr} | 存池: ${row.count}尾 | 估损: ${row.estimatedLoss}`,
+      row.risk === 'red' ? 'red' : row.risk === 'yellow' ? 'yellow' : 'green'
+    )
+  }
 }
 
 function exportData() {
