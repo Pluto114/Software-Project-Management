@@ -4,13 +4,13 @@
 
 > 软件项目管理课程项目 | 团队：翁晨昊(PM)、赵杰瑞(Backend)、陈鹏翔(Frontend)、王涵哲(Hardware)
 
-## 开发状态 (Phase 1 完成 · 2026-05-04)
+## 开发状态 (Phase 2 完成 · 2026-05-07)
 
-**已关闭 11/17 GitHub Issues，前端后端核心链路可运行。**
+**前端 5 页面 + 后端 4 微服务 + AI 服务 + Docker 设施全部可运行。UI 全面升级，设计系统重写。**
 
 | 层 | 交付物 | 技术 | 端口 |
 |---|--------|------|------|
-| 前端 | 3D 数字孪生 / AI 分析 / CEO 看板 / 移动端 | Vue3 + Three.js + ECharts | 5173 |
+| 前端 | 3D 数字孪生 / AI 分析 / CEO 看板 / 移动端 / **运维监控** | Vue3 + Three.js + ECharts | 5173 |
 | 后端 | WebSocket 枢纽 / 遥测 / 控制 / 规则引擎 | Node.js + TypeScript | 3001-3004 |
 | AI | DO 预测服务 + FCR 优化 | Python FastAPI | 8000 |
 | 设施 | Redis + MySQL + InfluxDB | Docker Compose | 3307/6379/8086 |
@@ -68,7 +68,7 @@ cd tools/dev-scripts && npx tsx sensor-simulator.ts
 | 模块 | 技术选型 | 状态 |
 |------|----------|------|
 | 后端服务 | Node.js + TypeScript + Express | ✅ 4 个微服务 |
-| 前端 3D | Vue3 + Three.js + ECharts | ✅ 4 个页面 |
+| 前端 3D | Vue3 + Three.js + ECharts | ✅ 5 个页面 |
 | 移动端 | Vue3 响应式 (模拟手机) | ✅ /mobile 路由 |
 | AI 引擎 | Python FastAPI + NumPy (演示) | ✅ port 8000 |
 | 实时缓存 | Redis 7 | ✅ Docker |
@@ -97,6 +97,7 @@ cd tools/dev-scripts && npx tsx sensor-simulator.ts
 │   │   │   ├── DigitalTwinDashboard.vue #   3D 数字孪生看板 (Three.js)
 │   │   │   ├── AIAnalysis.vue          #   AI 预测分析页 (ECharts)
 │   │   │   ├── CEODashboard.vue         #   CEO 管理看板 (KPI+图表)
+│   │   │   ├── ObservabilityDashboard.vue # 系统运维与可观测性看板
 │   │   │   └── TechnicianMobile.vue     #   移动端红绿灯+滑动解锁
 │   │   ├── components/
 │   │   │   └── ThreeScene.vue          #   3D 场景 (水体/传感器/光照)
@@ -168,7 +169,7 @@ sensor-simulator  →  WebSocket (0xAA55 binary frames)
 |--------|------|------|
 | 感知子系统 | 协议适配、数据清洗、心跳监测 | ✅ 模拟器替代 |
 | 计算子系统 | DO 预测引擎、风险评级、规则库 | ✅ Mock LSTM + FCR 优化 |
-| 交互子系统 | 3D 数字孪生渲染、时序看板、移动端 | ✅ 4 页面可运行 |
+| 交互子系统 | 3D 数字孪生渲染、时序看板、移动端 | ✅ 5 页面可运行 |
 | 控制子系统 | 反向控制网关、HMAC 指令签名 | ✅ API 完整 |
 
 ## 团队职责 (RACI)
@@ -188,5 +189,8 @@ sensor-simulator  →  WebSocket (0xAA55 binary frames)
 | M2 核心研发 | 2026-03-25 | WebSocket 引擎与 3D 静态建模完成 | ✅ |
 | M3 集成测试 | 2026-04-05 | 全链路贯通，核心链路可演示 | ✅ Phase 1 |
 | M4 正式交付 | 2026-04-14 | 结项验收，交付全套基线文档与源码 | ⏳ 待后续 |
+| M5 Phase 2 | 2026-05-07 | 运维看板 + UI 设计系统重写 + 8 项缺陷修复 | ✅ Phase 2 |
 
 > **Phase 1 完成于 2026-05-04**：前端 4 页面 + 后端 4 微服务 + AI 服务 + Docker 设施 + 数据模拟器全部可运行。11/17 GitHub Issues 已关闭。
+>
+> **Phase 2 完成于 2026-05-07**：新增运维可观测性看板（E2E延迟图 + 网关拓扑 + 服务器资源 + 日志流）、全局 Design System 重写（深邃工业暗色主题，`#0a0e17` 底色）、CEO 看板修正（图表布局不重叠 + CSV UTF-8 BOM 中文不乱码）、AI Analysis 渐变色修正（明确色值映射替代正则替换）、移动端传感器字段匹配修复（`s.name` → `s.key`）、ThreeScene gsap 依赖移除（手动 `requestAnimationFrame` 缓动）。共 +1 新页面、8 项缺陷修复、1 次设计系统重构。已推送到 GitHub main 分支。
