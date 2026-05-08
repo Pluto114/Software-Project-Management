@@ -17,13 +17,32 @@
 | 工具 | 传感器数据模拟器 | TypeScript | - |
 | 管理 | GitHub Issues Kanban 看板 | 17 Issues, 13 labels | - |
 
-### 快速启动
+### 快速启动（前端独立模式）
+
+> 前端无需 Docker、无需后端即可运行。无后端时自动降级到 Pinia 模拟数据。
+
+```bash
+cd apps/command-center-web
+npm install          # 仅首次
+npm run dev          # → http://localhost:5173/Software-Project-Management/
+```
+
+浏览器打开后直接可用，所有 5 个页面模拟数据自动填充。
+
+### 本地构建 & 预览（模拟生产部署）
+
+```bash
+cd apps/command-center-web
+npm run build        # 产出 dist/
+npx vite preview     # → http://localhost:4173/Software-Project-Management/
+```
+
+### 全栈启动（需 Docker + Python）
 
 > 前置要求：Node.js 18+, Docker Desktop, Python 3.10+
 
 ```bash
 # 0. 安装依赖 (仅首次，耗时约 2-3 分钟)
-cd apps/command-center-web && npm install && cd ../..
 cd services/realtime-hub && npm install && cd ../..
 cd services/telemetry-service && npm install && cd ../..
 cd services/control-service && npm install && cd ../..
@@ -34,7 +53,7 @@ cd tools/dev-scripts && npm install && cd ../..
 # 1. 基础设施
 docker compose -f docker-compose.dev.yml up -d
 
-# 2. 前端 (任意一个终端)
+# 2. 前端
 cd apps/command-center-web && npm run dev         # :5173
 
 # 3. 后端微服务 (各开终端)
@@ -43,14 +62,40 @@ cd services/telemetry-service && npm run dev      # 遥测 :3002
 cd services/control-service && npm run dev        # 控制 :3003
 cd services/rule-engine-service && npm run dev    # 规则 :3004
 
-# 4. AI 服务 (可选，不影响前端运行)
+# 4. AI 服务 (可选)
 cd ml/do-forecast-service && python src/serve.py  # :8000
 
 # 5. 数据模拟 (填充数据流)
 cd tools/dev-scripts && npx tsx sensor-simulator.ts
 ```
 
-**前端可独立运行** — 无后端时自动降级到 Pinia 模拟数据。
+### GitHub Pages 线上部署
+
+> 推送 main 分支自动触发 GitHub Actions 构建并发布到 gh-pages 分支。
+
+**线上地址**：`https://pluto114.github.io/Software-Project-Management/`
+
+**部署架构**：
+
+```text
+git push main → deploy.yml → npm ci → npm run build → gh-pages 分支 → GitHub Pages
+```
+
+**当前状态**：
+
+| 项目 | 状态 |
+|------|------|
+| deploy.yml | ✅ 已配置（push main + 手动 dispatch） |
+| CI 构建 | ✅ 最近 5 次全部成功 |
+| gh-pages 分支 | ✅ 自动更新 |
+| GitHub Pages 开关 | ⚠️ 需管理员手动启用 |
+
+**管理员启用 Pages**（需 Pluto114 操作）：
+
+1. 仓库 Settings → Pages → Source 选 **Deploy from a branch**
+2. Branch 选 `gh-pages`，目录 `/ (root)` → Save
+3. 若仓库为私有：需先改为 **Public**（免费），或升级至 GitHub Pro
+4. 等待 1-2 分钟 → 访问上方线上地址
 
 ## 系统架构
 
