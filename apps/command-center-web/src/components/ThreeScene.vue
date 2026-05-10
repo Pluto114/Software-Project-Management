@@ -86,8 +86,8 @@ function initScene() {
   const h = containerRef.value!.clientHeight
 
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x0a0e17)
-  scene.fog = new THREE.Fog(0x0a0e17, 15, 50)
+  scene.background = new THREE.Color(0x0e1622)
+  scene.fog = new THREE.Fog(0x0e1622, 15, 50)
 
   camera = new THREE.PerspectiveCamera(50, w / h, 0.5, 100)
   camera.position.set(8, 6, 10)
@@ -160,10 +160,13 @@ function setView(view: string) {
 
 // ---- 光照 ----
 function createLighting() {
-  const ambient = new THREE.AmbientLight(0x1a2a3a, 1.5)
+  const ambient = new THREE.AmbientLight(0x3a4a5a, 2.5)
   scene.add(ambient)
 
-  const dirLight = new THREE.DirectionalLight(0xccddff, 2)
+  const hemiLight = new THREE.HemisphereLight(0x8899cc, 0x334455, 1.5)
+  scene.add(hemiLight)
+
+  const dirLight = new THREE.DirectionalLight(0xccddff, 1.5)
   dirLight.position.set(5, 12, 5)
   dirLight.castShadow = true
   dirLight.shadow.mapSize.set(2048, 2048)
@@ -189,14 +192,14 @@ function createPoolModel() {
   poolMesh = new THREE.Group()
 
   const floorGeo = new THREE.BoxGeometry(5, 0.2, 3)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.3, metalness: 0.7 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a4a5c, roughness: 0.35, metalness: 0.4 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.position.y = -1.1
   floor.receiveShadow = true
   floor.castShadow = true
   poolMesh.add(floor)
 
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.25, metalness: 0.6 })
+  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x305870, roughness: 0.3, metalness: 0.35 })
   const walls: [number, number, number, number, number, number][] = [
     [-2.5, 0.4, 0, 0.15, 3, 3],
     [2.5, 0.4, 0, 0.15, 3, 3],
@@ -236,7 +239,7 @@ function createPoolModel() {
   waterSurface.name = 'waterSurface'
   poolMesh.add(waterSurface)
 
-  const gridHelper = new THREE.PolarGridHelper(2.5, 32, 20, 64, 0x1a3a5a, 0x1a3a5a)
+  const gridHelper = new THREE.PolarGridHelper(2.5, 32, 20, 64, 0x2a5068, 0x2a5068)
   gridHelper.position.y = -0.98
   poolMesh.add(gridHelper)
 
@@ -531,7 +534,7 @@ function drawHeatSpot(
 
 // ---- 网格 ----
 function createGrid() {
-  const gridHelper = new THREE.GridHelper(20, 30, 0x1a2a30, 0x0d1518)
+  const gridHelper = new THREE.GridHelper(20, 30, 0x2a4058, 0x12202a)
   gridHelper.position.y = -1.3
   scene.add(gridHelper)
 }
