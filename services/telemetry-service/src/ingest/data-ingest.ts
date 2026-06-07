@@ -41,7 +41,15 @@ export class DataIngest {
   private retentionTimer: NodeJS.Timeout | null = null
 
   constructor() {
-    this.redis = new Redis(REDIS_URL)
+    this.redis = new Redis(REDIS_URL, {
+      connectTimeout: 500,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+      retryStrategy(times) {
+        if (times > 2) return null
+        return Math.min(times * 100, 500)
+      },
+    })
     this.influx = new InfluxDB({ url: INFLUX_URL, token: INFLUX_TOKEN })
     this.writeApi = this.influx.getWriteApi(INFLUX_ORG, INFLUX_BUCKET, 'ms')
   }
@@ -50,9 +58,11 @@ export class DataIngest {
     this.running = true
 
     // Redis Pub/Sub 消费
-    this.redis.subscribe('sensor_data', (err) => {
-      if (err) console.error('[ingest] Redis subscribe error:', err.message)
-    })
+    try {
+      await this.redis.subscribe('sensor_data')
+    } catch (err: any) {
+      console.warn(`[ingest] Redis subscribe unavailable: ${err.message}`)
+    }
 
     this.redis.on('message', (channel, message) => {
       if (channel === 'sensor_data') {

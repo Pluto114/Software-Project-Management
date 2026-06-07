@@ -47,6 +47,7 @@
         >{{ b === 'all' ? '全部' : b }}</button>
       </div>
       <div class="filter-spacer"></div>
+      <div class="scope-badge">{{ auth.user?.roleLabel }} · {{ auth.user?.scopeLabel }}</div>
       <button class="export-btn" @click="exportData">
         <span>⤓</span> 导出报表
       </button>
@@ -58,10 +59,10 @@
         <div class="panel-header">
           <span class="panel-title">成本-收益趋势（近 30 天）</span>
           <div class="chart-legend-inline">
-            <span class="legend-dot-inline" style="background:#00d4ff"></span> 饲料
-            <span class="legend-dot-inline" style="background:#1a5a6a"></span> 能耗
-            <span class="legend-dot-inline" style="background:#0d3038"></span> 人工
-            <span class="legend-dot-inline" style="background:#00e676; width:14px; height:2px; border-radius:1px;"></span> 利润率
+            <span class="legend-dot-inline" style="background:#256f8f"></span> 饲料
+            <span class="legend-dot-inline" style="background:#84a9b8"></span> 能耗
+            <span class="legend-dot-inline" style="background:#c5d3dc"></span> 人工
+            <span class="legend-dot-inline" style="background:#2f7d57; width:14px; height:2px; border-radius:1px;"></span> 利润率
           </div>
         </div>
         <div ref="profitChartRef" class="chart-lg"></div>
@@ -133,38 +134,40 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { useNotification } from '../composables/useNotification'
+import { useAuthStore } from '../stores/auth'
 
 const profitChartRef = ref<HTMLDivElement>()
 const baseCompareChartRef = ref<HTMLDivElement>()
 const pieChartRef = ref<HTMLDivElement>()
 let charts: echarts.ECharts[] = []
+const auth = useAuthStore()
 
 // ---- 筛选状态 ----
 const activeBaseFilter = ref('all')
 const activeRiskFilter = ref('all')
 const activeBreedFilter = ref('all')
-const baseFilters = ['all', 'A基地', 'B基地']
 const riskFilters = [
   { value: 'all', label: '全部' },
   { value: 'green', label: '正常' },
   { value: 'yellow', label: '预警' },
   { value: 'red', label: '告警' },
 ]
-const breedFilters = ['all', '石斑鱼', '珍珠龙胆', '东星斑', '老虎斑']
-
-// ---- KPI 数据 ----
-const kpiData = ref([
-  { label: '总养殖池数', value: '8', unit: '池', trend: '全部在线', trendClass: '', trendArrow: '' },
-  { label: '存池鱼群总值', value: '486', unit: '万元', trend: '同比 +12.3%', trendClass: 'green', trendArrow: '▲' },
-  { label: '本月 FCR', value: '1.32', unit: '', trend: '优于目标 8%', trendClass: 'green', trendArrow: '▼' },
-  { label: '本月能耗', value: '8,420', unit: 'kWh', trend: '较上月 -5.6%', trendClass: 'green', trendArrow: '▼' },
-  { label: 'AI 预警处置率', value: '98.5', unit: '%', trend: '1 条待处理', trendClass: 'green', trendArrow: '▲' },
-])
 
 // ---- 池数据 ----
 interface PoolRow {
   id: string; base: string; breed: string; count: string; do: number
   fcr: number; fcrTrend: 'up' | 'down' | 'stable'; risk: string; riskText: string; estimatedLoss: string
+}
+
+interface BackendProductionPool {
+  id: string
+  pool_code: string
+  base_name: string
+  breed: string
+  fish_count: number
+  area_sqm: number
+  status: 'active' | 'maintenance' | 'idle'
+  density_per_sqm?: number
 }
 
 const poolData = ref<PoolRow[]>([
@@ -178,8 +181,39 @@ const poolData = ref<PoolRow[]>([
   { id: 'P08', base: 'B基地', breed: '珍珠龙胆', count: '6,200', do: 5.9, fcr: 1.19, fcrTrend: 'down', risk: 'green', riskText: '正常', estimatedLoss: '0' },
 ])
 
+const breedFilters = computed(() => {
+  const breeds = poolData.value
+    .filter(row => auth.canSeeBase(row.base))
+    .map(row => row.breed)
+  return ['all', ...Array.from(new Set(breeds))]
+})
+
+const baseFilters = computed(() => {
+  const scopedBases = poolData.value
+    .filter(row => auth.canSeeBase(row.base))
+    .map(row => row.base)
+  return ['all', ...Array.from(new Set(scopedBases))]
+})
+
+// ---- KPI 数据 ----
+const kpiData = computed(() => {
+  const rows = poolData.value.filter(row => auth.canSeeBase(row.base))
+  const totalFish = rows.reduce((sum, row) => sum + Number(row.count.replace(/,/g, '')), 0)
+  const riskRows = rows.filter(row => row.risk !== 'green')
+  const avgFcr = rows.length ? rows.reduce((sum, row) => sum + row.fcr, 0) / rows.length : 0
+
+  return [
+    { label: '授权养殖池数', value: String(rows.length), unit: '池', trend: auth.user?.scopeLabel || '', trendClass: '', trendArrow: '' },
+    { label: '存池鱼群总值', value: Math.round(totalFish * 0.0042).toLocaleString(), unit: '万元', trend: '按授权基地统计', trendClass: 'green', trendArrow: '' },
+    { label: '本月 FCR', value: avgFcr.toFixed(2), unit: '', trend: '按当前范围均值', trendClass: 'green', trendArrow: '▼' },
+    { label: '本月能耗', value: (rows.length * 1050).toLocaleString(), unit: 'kWh', trend: '较上月 -5.6%', trendClass: 'green', trendArrow: '▼' },
+    { label: '预警处置率', value: riskRows.length > 0 ? '96.8' : '100', unit: '%', trend: `${riskRows.length} 条待处理`, trendClass: 'green', trendArrow: '' },
+  ]
+})
+
 const filteredPoolData = computed(() => {
   return poolData.value.filter(row => {
+    if (!auth.canSeeBase(row.base)) return false
     if (activeBaseFilter.value !== 'all' && row.base !== activeBaseFilter.value) return false
     if (activeRiskFilter.value !== 'all' && row.risk !== activeRiskFilter.value) return false
     if (activeBreedFilter.value !== 'all' && row.breed !== activeBreedFilter.value) return false
@@ -188,6 +222,48 @@ const filteredPoolData = computed(() => {
 })
 
 const { notify, ensurePermission } = useNotification()
+
+function toPoolRow(pool: BackendProductionPool): PoolRow {
+  const density = pool.density_per_sqm ?? (pool.area_sqm > 0 ? pool.fish_count / pool.area_sqm : 0)
+  const number = Number(pool.pool_code.replace(/\D/g, '')) || 1
+  const doValue = Number(Math.max(4.6, Math.min(6.3, 6.2 - density / 20 - (number % 3) * 0.12)).toFixed(1))
+  const fcr = Number((1.16 + density / 95 + (number % 4) * 0.03).toFixed(2))
+  const risk = pool.status === 'maintenance' || doValue < 5 ? 'red' : doValue < 5.5 || density > 22 ? 'yellow' : 'green'
+  const estimatedLoss = risk === 'red'
+    ? `${Math.max(8, Math.round(pool.fish_count * 0.0012)).toLocaleString()}万`
+    : risk === 'yellow'
+      ? `${Math.max(1, Math.round(pool.fish_count * 0.00035 * 10) / 10)}万`
+      : '0'
+
+  return {
+    id: pool.pool_code,
+    base: pool.base_name,
+    breed: pool.breed,
+    count: pool.fish_count.toLocaleString(),
+    do: doValue,
+    fcr,
+    fcrTrend: density > 22 ? 'up' : density < 16 ? 'down' : 'stable',
+    risk,
+    riskText: risk === 'red' ? '告警' : risk === 'yellow' ? '预警' : '正常',
+    estimatedLoss,
+  }
+}
+
+async function loadProductionPools() {
+  try {
+    const res = await fetch('/api/v1/production/pools', {
+      headers: {
+        'Content-Type': 'application/json',
+        ...auth.getAuthHeaders(),
+      },
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+    poolData.value = (data.pools || []).map(toPoolRow)
+  } catch {
+    // 保留内置演示数据，避免后端重启瞬间经营页空白。
+  }
+}
 
 function viewPoolDetail(id: string) {
   const row = poolData.value.find(r => r.id === id)
@@ -214,36 +290,38 @@ function exportData() {
 
 // ---- 饼图数据 ----
 const pieData = [
-  { name: '饲料', value: 45, pct: 45, color: '#ff6b35' },
-  { name: '电力', value: 22, pct: 22, color: '#ffc107' },
-  { name: '人工', value: 15, pct: 15, color: '#00e676' },
-  { name: '鱼药', value: 10, pct: 10, color: '#00d4ff' },
-  { name: '维护', value: 8, pct: 8, color: '#7C4DFF' },
+  { name: '饲料', value: 45, pct: 45, color: '#b86525' },
+  { name: '电力', value: 22, pct: 22, color: '#b7791f' },
+  { name: '人工', value: 15, pct: 15, color: '#2f7d57' },
+  { name: '鱼药', value: 10, pct: 10, color: '#256f8f' },
+  { name: '维护', value: 8, pct: 8, color: '#7b8794' },
 ]
 
 // ---- 图表初始化 ----
 onMounted(() => {
+  loadProductionPools()
+
   // 成本-收益趋势（双Y轴）
   if (profitChartRef.value) {
-    const chart = echarts.init(profitChartRef.value, 'dark')
+    const chart = echarts.init(profitChartRef.value)
     const days = Array.from({ length: 30 }, (_, i) => `${i + 1}日`)
     chart.setOption({
       backgroundColor: 'transparent',
       grid: { left: 55, right: 55, top: 15, bottom: 35 },
       xAxis: {
         type: 'category', data: days,
-        axisLabel: { color: '#555a6e', fontSize: 9 },
-        axisLine: { lineStyle: { color: '#2A3040' } },
+        axisLabel: { color: '#7b8794', fontSize: 9 },
+        axisLine: { lineStyle: { color: '#c9d3dd' } },
       },
       yAxis: [
         {
           type: 'value', name: '万元',
-          axisLabel: { color: '#555a6e', fontSize: 9 },
-          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+          axisLabel: { color: '#7b8794', fontSize: 9 },
+          splitLine: { lineStyle: { color: '#e5eaf0' } },
         },
         {
           type: 'value', name: '%',
-          axisLabel: { color: '#555a6e', fontSize: 9 },
+          axisLabel: { color: '#7b8794', fontSize: 9 },
           splitLine: { show: false },
         },
       ],
@@ -251,24 +329,24 @@ onMounted(() => {
         {
           name: '饲料成本', type: 'bar', stack: 'cost',
           data: Array.from({ length: 30 }, () => +(2 + Math.random()).toFixed(1)),
-          itemStyle: { color: '#00d4ff', borderRadius: [0, 0, 0, 0] },
+          itemStyle: { color: '#256f8f', borderRadius: [0, 0, 0, 0] },
           barWidth: '60%',
         },
         {
           name: '能耗成本', type: 'bar', stack: 'cost',
           data: Array.from({ length: 30 }, () => +(1 + Math.random() * 0.8).toFixed(1)),
-          itemStyle: { color: '#1a5a6a' },
+          itemStyle: { color: '#84a9b8' },
         },
         {
           name: '人工成本', type: 'bar', stack: 'cost',
           data: Array.from({ length: 30 }, () => +(0.8 + Math.random() * 0.4).toFixed(1)),
-          itemStyle: { color: '#0d3038' },
+          itemStyle: { color: '#c5d3dc' },
         },
         {
           name: '利润率', type: 'line', yAxisIndex: 1,
           data: Array.from({ length: 30 }, () => +(18 + Math.random() * 8).toFixed(1)),
-          lineStyle: { color: '#00e676', width: 2.5 },
-          itemStyle: { color: '#00e676' },
+          lineStyle: { color: '#2f7d57', width: 2.5 },
+          itemStyle: { color: '#2f7d57' },
           symbol: 'circle', symbolSize: 4,
           smooth: true,
         },
@@ -276,7 +354,7 @@ onMounted(() => {
       tooltip: { trigger: 'axis' },
       legend: {
         data: ['饲料成本', '能耗成本', '人工成本', '利润率'],
-        textStyle: { color: '#8b92a8', fontSize: 10 },
+        textStyle: { color: '#7b8794', fontSize: 10 },
         bottom: 0,
       },
     })
@@ -285,38 +363,38 @@ onMounted(() => {
 
   // 多基地对比
   if (baseCompareChartRef.value) {
-    const chart = echarts.init(baseCompareChartRef.value, 'dark')
+    const chart = echarts.init(baseCompareChartRef.value)
     chart.setOption({
       backgroundColor: 'transparent',
       grid: { left: 50, right: 30, top: 15, bottom: 35 },
       xAxis: {
         type: 'category',
         data: ['饲料', '电力', '人工', '鱼药', '维护'],
-        axisLabel: { color: '#8b92a8', fontSize: 10 },
-        axisLine: { lineStyle: { color: '#2A3040' } },
+        axisLabel: { color: '#7b8794', fontSize: 10 },
+        axisLine: { lineStyle: { color: '#c9d3dd' } },
       },
       yAxis: {
         type: 'value', name: '万元',
-        axisLabel: { color: '#555a6e', fontSize: 9 },
-        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+        axisLabel: { color: '#7b8794', fontSize: 9 },
+        splitLine: { lineStyle: { color: '#e5eaf0' } },
       },
       series: [
         {
           name: 'A基地', type: 'bar',
           data: [28, 14, 10, 6, 5],
-          itemStyle: { color: '#00d4ff', borderRadius: [4, 4, 0, 0] },
+          itemStyle: { color: '#256f8f', borderRadius: [4, 4, 0, 0] },
           barWidth: '35%', barGap: '20%',
         },
         {
           name: 'B基地', type: 'bar',
           data: [22, 11, 8, 5, 4],
-          itemStyle: { color: '#ff6b35', borderRadius: [4, 4, 0, 0] },
+          itemStyle: { color: '#b86525', borderRadius: [4, 4, 0, 0] },
         },
       ],
       tooltip: { trigger: 'axis' },
       legend: {
         data: ['A基地', 'B基地'],
-        textStyle: { color: '#8b92a8', fontSize: 10 },
+        textStyle: { color: '#7b8794', fontSize: 10 },
         bottom: 0,
       },
     })
@@ -325,14 +403,14 @@ onMounted(() => {
 
   // 成本构成饼图
   if (pieChartRef.value) {
-    const chart = echarts.init(pieChartRef.value, 'dark')
+    const chart = echarts.init(pieChartRef.value)
     chart.setOption({
       backgroundColor: 'transparent',
       tooltip: { trigger: 'item', formatter: '{b}: {c}万元 ({d}%)' },
       series: [{
         type: 'pie', radius: ['45%', '70%'], center: ['50%', '50%'],
-        itemStyle: { borderRadius: 3, borderColor: '#0a0e17', borderWidth: 2 },
-        label: { color: '#8b92a8', fontSize: 10, formatter: '{b}\n{d}%' },
+        itemStyle: { borderRadius: 3, borderColor: '#ffffff', borderWidth: 2 },
+        label: { color: '#7b8794', fontSize: 10, formatter: '{b}\n{d}%' },
         data: pieData.map(d => ({ value: d.value, name: d.name, itemStyle: { color: d.color } })),
       }],
     })
@@ -353,12 +431,12 @@ onUnmounted(() => charts.forEach(c => c.dispose()))
 .kpi-row { display: flex; gap: 10px; flex-shrink: 0; }
 .kpi-card {
   flex: 1; background: var(--bg-panel); border: 1px solid var(--border-color);
-  border-radius: 10px; padding: 16px; text-align: center;
+  border-radius: 8px; padding: 14px 16px; text-align: left;
   transition: border-color 0.2s;
 }
-.kpi-card:hover { border-color: rgba(0,212,255,0.15); }
-.kpi-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em; }
-.kpi-value { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text-primary); }
+.kpi-card:hover { border-color: var(--border-active); }
+.kpi-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: 0; }
+.kpi-value { font-family: var(--font-mono); font-size: 27px; font-weight: 700; color: var(--text-primary); }
 .kpi-unit { font-size: 14px; color: var(--text-secondary); font-weight: 400; margin-left: 2px; }
 .kpi-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
 .kpi-sub.green { color: var(--accent-green); }
@@ -367,7 +445,7 @@ onUnmounted(() => charts.forEach(c => c.dispose()))
 /* 筛选工具栏 */
 .filter-bar {
   display: flex; align-items: center; gap: 6px;
-  padding: 6px 10px; background: rgba(255,255,255,0.02);
+  padding: 6px 10px; background: #ffffff;
   border: 1px solid var(--border-color); border-radius: 8px;
   flex-shrink: 0; flex-wrap: wrap;
 }
@@ -375,21 +453,30 @@ onUnmounted(() => charts.forEach(c => c.dispose()))
 .filter-label { font-size: 10px; color: var(--text-dim); margin-right: 2px; }
 .filter-divider { width: 1px; height: 18px; background: var(--border-color); margin: 0 4px; }
 .filter-spacer { flex: 1; }
+.scope-badge {
+  padding: 3px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
 .filter-btn {
   padding: 3px 10px; border: 1px solid var(--border-color); border-radius: 5px;
   background: transparent; color: var(--text-dim); font-size: 11px;
   cursor: pointer; font-family: inherit; transition: all 0.15s;
 }
 .filter-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
-.filter-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(0,212,255,0.08); }
+.filter-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); background: var(--accent-blue-dim); }
 .export-btn {
   display: flex; align-items: center; gap: 4px;
   padding: 5px 14px; border: 1px solid var(--accent-green);
-  border-radius: 6px; background: transparent; color: var(--accent-green);
+  border-radius: 6px; background: #ffffff; color: var(--accent-green);
   font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
-  transition: all 0.2s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
-.export-btn:hover { background: rgba(0,230,118,0.1); box-shadow: 0 0 12px rgba(0,230,118,0.15); }
+.export-btn:hover { background: var(--accent-green-dim); }
 
 /* 图表区 */
 .ceo-charts { display: flex; gap: 10px; flex-shrink: 0; }
@@ -410,10 +497,10 @@ onUnmounted(() => charts.forEach(c => c.dispose()))
   white-space: nowrap;
 }
 .data-table td {
-  padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text-secondary);
+  padding: 8px 10px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);
 }
-tr.row-yellow { background: rgba(255,107,53,0.03); }
-tr.row-red { background: rgba(255,23,68,0.04); }
+tr.row-yellow { background: var(--accent-orange-dim); }
+tr.row-red { background: var(--accent-red-dim); }
 .pool-id { color: var(--accent-blue); font-family: var(--font-mono); font-weight: 600; }
 .text-ok { color: var(--accent-green); }
 .text-caution { color: var(--accent-yellow); }

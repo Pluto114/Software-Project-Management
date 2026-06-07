@@ -1,222 +1,203 @@
 <template>
-  <div class="mobile-shell">
-    <div class="mobile-phone">
-      <!-- 状态栏 -->
-      <div class="phone-statusbar">
-        <span class="phone-time">{{ currentTime }}</span>
-        <span class="phone-icons">
-          <span class="signal-bars">▂▄▆█</span>
-          5G
-          <span class="battery">{{ batteryPct }}%</span>
-        </span>
-      </div>
-
-      <!-- App 头部 -->
-      <div class="app-header">
-        <div class="app-header-left">
-          <span class="app-logo">AQUA</span>
-          <span class="app-title">养殖池监控</span>
+  <div class="field-page">
+    <main class="field-shell">
+      <header class="field-header">
+        <div>
+          <span class="eyebrow">移动巡检</span>
+          <h1>现场申请与巡检</h1>
+          <p>{{ auth.user?.roleLabel }} · {{ auth.user?.scopeLabel }}</p>
         </div>
-        <span class="app-badge" :class="overallLevel">{{ overallText }}</span>
-      </div>
-
-      <!-- 池切换 Tab -->
-      <div class="pool-tabs">
-        <button
-          v-for="p in pools"
-          :key="p.id"
-          class="pool-tab"
-          :class="{ active: activePool === p.id, [p.riskLevel]: activePool === p.id }"
-          @click="activePool = p.id"
-        >
-          <span class="tab-dot" :class="p.riskLevel"></span>
-          {{ p.id }}
+        <button class="plain-btn" :disabled="loading" @click="loadFieldData">
+          {{ loading ? '刷新中' : '刷新' }}
         </button>
-      </div>
+      </header>
 
-      <!-- 健康分值卡片 -->
-      <div class="health-card" :class="healthLevel">
-        <div class="health-ring">
-          <svg viewBox="0 0 100 100" class="health-svg">
-            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" />
-            <circle
-              cx="50" cy="50" r="42" fill="none"
-              :stroke="healthColor"
-              stroke-width="6"
-              stroke-linecap="round"
-              :stroke-dasharray="2 * Math.PI * 42"
-              :stroke-dashoffset="2 * Math.PI * 42 * (1 - currentPool.healthScore / 100)"
-              class="health-arc"
-            />
-          </svg>
-          <div class="health-center">
-            <span class="health-score" :class="{ heartbeat: healthLevel === 'critical' }">{{ currentPool.healthScore }}</span>
-            <span class="health-label">健康分值</span>
-          </div>
-        </div>
-        <div class="health-meta">
-          <div class="health-stat">
-            <span class="hs-label">存活率</span>
-            <span class="hs-value green">{{ currentPool.survivalRate }}%</span>
-          </div>
-          <div class="health-stat">
-            <span class="hs-label">FCR</span>
-            <span class="hs-value" :class="currentPool.fcr > 1.4 ? 'warn' : ''">{{ currentPool.fcr }}</span>
-          </div>
-          <div class="health-stat">
-            <span class="hs-label">估损</span>
-            <span class="hs-value" :class="currentPool.estimatedLoss > 0 ? 'danger' : ''">{{ currentPool.estimatedLoss }}万</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 传感器指标卡片 -->
-      <div class="section-title">实时指标</div>
-      <div class="indicator-grid">
-        <div class="indicator-card" v-for="s in currentPool.sensors" :key="s.key" :class="'severity-' + s.status">
-          <div class="indicator-header">
-            <span class="indicator-name">{{ s.label }}</span>
-            <span class="severity-marker" :class="s.status">
-              {{ s.status === 'danger' ? '◆' : s.status === 'warning' ? '▲' : '●' }}
-            </span>
-          </div>
-          <div class="indicator-body">
-            <span class="indicator-value" :class="s.status">{{ s.displayValue }}</span>
-            <span class="indicator-unit">{{ s.unit }}</span>
-          </div>
-          <div class="indicator-bar-track">
-            <div class="indicator-bar-fill" :style="{ width: s.pct + '%', background: s.barColor }"></div>
-          </div>
-          <div class="indicator-range">
-            <span :class="s.status === 'danger' ? 'text-danger' : ''">阈值: {{ s.thresholdText }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 设备状态 -->
-      <div class="section-title">设备运行</div>
-      <div class="device-grid">
-        <div class="device-card" v-for="d in devices" :key="d.name" :class="{ on: d.on }">
-          <div class="device-icon" :class="{ on: d.on }" @click="toggleDevice(d)">
-            <span class="device-power">{{ d.on ? '◉' : '○' }}</span>
-          </div>
-          <div class="device-info">
-            <span class="device-name">{{ d.name }}</span>
-            <span class="device-detail">{{ d.info }}</span>
-          </div>
-          <label class="device-switch" @click.stop>
-            <input type="checkbox" v-model="d.on" @change="() => {}" />
-            <span class="switch-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <!-- 滑动解锁应急控制 -->
-      <div class="section-title">
-        应急控制
-        <span v-if="unlocked" class="countdown-badge">{{ countdown }}s</span>
-      </div>
-      <div class="emergency-panel" :class="{ unlocked: unlocked, confirming: confirming }">
-        <div
-          ref="slideTrackRef"
-          class="slide-track"
-          @mousedown="onSlideStart"
-          @touchstart.passive="onSlideStart"
+      <nav class="pool-tabs" aria-label="养殖池选择">
+        <button
+          v-for="pool in visiblePools"
+          :key="pool.id"
+          class="pool-tab"
+          :class="{ active: pool.id === activePool }"
+          @click="activePool = pool.id"
         >
-          <div class="slide-fill" :style="{ width: slidePct + '%' }"></div>
-          <div class="slide-bg-text" v-if="!unlocked">滑动解锁应急操作</div>
-          <div
-            class="slide-thumb"
-            :class="{ sliding: isSliding }"
-            :style="{ left: slidePct + '%' }"
-          >
-            <span class="slide-icon">{{ unlocked ? '✓' : '⟫' }}</span>
+          <span class="risk-dot" :class="pool.riskLevel"></span>
+          {{ pool.id }}
+        </button>
+      </nav>
+
+      <section class="pool-summary">
+        <div>
+          <span>当前池</span>
+          <strong>{{ currentPool.id }}</strong>
+          <em>{{ currentPool.base }} · {{ currentPool.breed }}</em>
+        </div>
+        <div>
+          <span>健康分</span>
+          <strong :class="currentPool.riskLevel">{{ currentPool.healthScore }}</strong>
+          <em>{{ riskText(currentPool.riskLevel) }}</em>
+        </div>
+        <div>
+          <span>存池量</span>
+          <strong>{{ currentPool.fishCount.toLocaleString() }}</strong>
+          <em>{{ currentPool.densityPerSqm }} 尾/m² · FCR {{ currentPool.fcr }}</em>
+        </div>
+      </section>
+
+      <section class="field-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>实时读数</h2>
+            <p>先判断风险，再提交需要管理员处理的设备申请。</p>
           </div>
         </div>
-        <div class="emergency-actions" v-if="unlocked">
-          <button class="emergency-btn critical" @click="triggerEmergency('full_aeration')">
-            <span class="eb-icon">⚡</span> 全负荷增氧
-          </button>
-          <button class="emergency-btn warning" @click="triggerEmergency('freq_up')">
-            <span class="eb-icon">↑</span> 增氧频率 +15%
-          </button>
-          <button class="emergency-btn info" @click="triggerEmergency('stop_feed')">
-            <span class="eb-icon">⏸</span> 停止投喂
+        <div class="metric-grid">
+          <div v-for="sensor in currentPool.sensors" :key="sensor.key" class="metric-card" :class="sensor.status">
+            <span>{{ sensor.label }}</span>
+            <strong>{{ sensor.displayValue }} <small>{{ sensor.unit }}</small></strong>
+            <em>{{ sensor.thresholdText }}</em>
+          </div>
+        </div>
+      </section>
+
+      <section class="field-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>提交设备申请</h2>
+            <p>巡检员只提交申请，管理员处理后才允许现场执行。</p>
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <button
+            v-for="action in requestActions"
+            :key="action.action_type"
+            class="action-card"
+            :class="{ urgent: action.priority === 'urgent' }"
+            @click="openRequest(action)"
+          >
+            <strong>{{ action.action_label }}</strong>
+            <span>{{ action.device_name }}</span>
+            <em>{{ action.priority === 'urgent' ? '高风险' : '普通' }}</em>
           </button>
         </div>
-      </div>
 
-      <!-- 最近告警 -->
-      <div class="section-title">告警记录</div>
-      <div class="alert-list">
-        <div class="alert-row" v-for="a in alerts" :key="a.time" :class="'severity-' + a.level">
-          <span class="severity-marker small" :class="a.level">
-            {{ a.level === 'danger' ? '◆' : a.level === 'warning' ? '▲' : '●' }}
-          </span>
-          <span class="alert-time">{{ a.time }}</span>
-          <span class="alert-msg">{{ a.msg }}</span>
+        <form v-if="requestForm.open" class="request-form" @submit.prevent="submitRequest">
+          <div class="form-title">
+            <span>{{ requestForm.device_name }}</span>
+            <strong>{{ requestForm.action_label }}</strong>
+          </div>
+
+          <label>
+            申请原因
+            <select v-model="requestForm.reason" required>
+              <option value="">请选择原因</option>
+              <option value="水质指标接近预警线">水质指标接近预警线</option>
+              <option value="现场发现设备异常">现场发现设备异常</option>
+              <option value="投喂或残饵情况需要调整">投喂或残饵情况需要调整</option>
+              <option value="主管要求现场提交申请">主管要求现场提交申请</option>
+            </select>
+          </label>
+
+          <label>
+            现场说明
+            <textarea v-model.trim="requestForm.note" rows="3" placeholder="写清楚读数、池边情况或照片编号"></textarea>
+          </label>
+
+          <label v-if="requestForm.priority === 'urgent'">
+            高风险确认
+            <input v-model.trim="requestForm.safety_text" placeholder="输入：现场确认" />
+          </label>
+
+          <div class="form-actions">
+            <button type="button" class="plain-btn" @click="resetRequestForm">取消</button>
+            <button class="primary-btn" type="submit" :disabled="submitting">
+              {{ submitting ? '提交中' : '提交给管理员' }}
+            </button>
+          </div>
+        </form>
+
+        <p v-if="message.text" class="message-line" :class="message.kind">{{ message.text }}</p>
+      </section>
+
+      <section class="field-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>我的申请</h2>
+            <p>管理员处理结果会显示在这里。</p>
+          </div>
         </div>
-      </div>
 
-      <!-- 底部安全区 -->
-      <div class="phone-bottom">
-        <span class="bottom-hint">AquaIntelligence Technician v1.0 · {{ currentTime }}</span>
-      </div>
-    </div>
+        <div v-if="visibleRequests.length === 0" class="empty-state">
+          暂无申请。
+        </div>
+
+        <article v-for="request in visibleRequests" :key="request.id" class="request-row">
+          <div class="request-main">
+            <div class="request-title">
+              <strong>{{ request.pool_code }} · {{ request.action_label }}</strong>
+              <span class="status-pill" :class="request.status">{{ statusLabel(request) }}</span>
+            </div>
+            <p>{{ request.device_name }} · {{ request.reason }}</p>
+            <p v-if="request.review_message" class="review-text">
+              管理员意见：{{ request.review_message }}
+            </p>
+            <p v-if="request.completion_note" class="review-text">
+              执行说明：{{ request.completion_note }}
+            </p>
+          </div>
+          <div class="request-side">
+            <span>{{ formatTime(request.requested_at) }}</span>
+            <button v-if="request.status === 'approved'" class="primary-btn small" @click="confirmRequest(request)">
+              确认已执行
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <section class="field-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>今日巡检</h2>
+            <p>按任务逐项检查，完成后记录到后端。</p>
+          </div>
+        </div>
+
+        <div v-if="visibleTasks.length === 0" class="empty-state">
+          暂无巡检任务。
+        </div>
+
+        <article v-for="task in visibleTasks" :key="task.id" class="task-row" :class="{ done: task.status === 'completed' }">
+          <div>
+            <strong>{{ task.pool_code }} · {{ task.title }}</strong>
+            <p>{{ task.due_time }} · {{ task.checklist.join(' / ') }}</p>
+          </div>
+          <button class="plain-btn" :disabled="task.status === 'completed'" @click="completeTask(task)">
+            {{ task.status === 'completed' ? '已完成' : '完成巡检' }}
+          </button>
+        </article>
+      </section>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useNotification } from '../composables/useNotification'
+import { computed, onMounted, ref } from 'vue'
+import { useAuthStore } from '../stores/auth'
 
-// ---- 传感器阈值定义 ----
-const THRESHOLDS: Record<string, { green: [number, number]; yellow: [number, number]; unit: string; label: string }> = {
-  DO: { green: [5.5, 9], yellow: [4.5, 5.5], unit: 'mg/L', label: 'DO' },
-  TEMP: { green: [22, 28], yellow: [28, 30], unit: '°C', label: '水温' },
-  pH: { green: [7.0, 8.0], yellow: [6.5, 8.5], unit: 'pH', label: 'pH' },
-  NH3N: { green: [0, 0.2], yellow: [0.2, 0.3], unit: 'mg/L', label: '氨氮' },
-}
+const auth = useAuthStore()
 
-function evaluateSeverity(key: string, value: number): 'normal' | 'warning' | 'danger' {
-  const t = THRESHOLDS[key]
-  if (!t) return 'normal'
-  if (value >= t.green[0] && value <= t.green[1]) return 'normal'
-  if (value >= t.yellow[0] && value <= t.yellow[1]) return 'warning'
-  return 'danger'
-}
+type RiskLevel = 'green' | 'yellow' | 'red'
+type SensorStatus = 'normal' | 'warning' | 'danger'
+type RequestStatus = 'waiting_review' | 'approved' | 'rejected' | 'completed'
+type Priority = 'normal' | 'urgent'
 
-function getBarPct(key: string, value: number): number {
-  switch (key) {
-    case 'DO': return Math.min(100, (value / 9) * 100)
-    case 'TEMP': return Math.min(100, ((value - 20) / 15) * 100)
-    case 'pH': return Math.min(100, ((value - 6.5) / 2) * 100)
-    case 'NH3N': return Math.min(100, (value / 0.5) * 100)
-    default: return 50
-  }
-}
-
-function getBarColor(key: string, status: string): string {
-  if (status === 'danger') return '#ff1744'
-  if (status === 'warning') return '#ff6b35'
-  return '#00e676'
-}
-
-function getThresholdText(key: string): string {
-  const t = THRESHOLDS[key]
-  return `${t.green[0]}-${t.green[1]} ${t.unit}`
-}
-
-// ---- 数据 ----
 interface SensorInfo {
   key: string
   label: string
   value: number
   displayValue: string
   unit: string
-  status: 'normal' | 'warning' | 'danger'
-  pct: number
-  barColor: string
+  status: SensorStatus
   thresholdText: string
 }
 
@@ -224,486 +205,898 @@ interface PoolData {
   id: string
   base: string
   breed: string
+  fishCount: number
+  densityPerSqm: number
+  status: 'active' | 'maintenance' | 'idle'
   survivalRate: number
   fcr: number
-  estimatedLoss: number
   healthScore: number
-  riskLevel: 'green' | 'yellow' | 'red'
+  riskLevel: RiskLevel
   sensors: SensorInfo[]
+  latestBatchCode?: string
 }
 
-function makePoolSensor(key: string, value: number): SensorInfo {
-  const status = evaluateSeverity(key, value)
+interface BackendProductionPool {
+  id: string
+  pool_code: string
+  base_name: string
+  breed: string
+  fish_count: number
+  area_sqm: number
+  water_depth_m: number
+  status: 'active' | 'maintenance' | 'idle'
+  manager: string
+  density_per_sqm?: number
+  active_batch_count?: number
+  latest_batch?: {
+    batch_code: string
+    breed: string
+    quantity: number
+    stocked_at: number
+  } | null
+}
+
+interface FieldRequest {
+  id: string
+  request_no: string
+  base_name: string
+  pool_code: string
+  device_name: string
+  action_type: string
+  action_label: string
+  priority: Priority
+  reason: string
+  note: string
+  status: RequestStatus
+  status_label: string
+  requested_by_name: string
+  requested_at: number
+  review_message?: string
+  completion_note?: string
+}
+
+interface FieldTask {
+  id: string
+  task_no: string
+  base_name: string
+  pool_code: string
+  title: string
+  due_time: string
+  assignee: string
+  status: 'pending' | 'completed'
+  checklist: string[]
+  result_note?: string
+}
+
+interface RequestAction {
+  device_name: string
+  action_type: string
+  action_label: string
+  priority: Priority
+}
+
+const THRESHOLDS: Record<string, { green: [number, number]; yellow: [number, number]; unit: string; label: string }> = {
+  DO: { green: [5.5, 9], yellow: [4.5, 5.5], unit: 'mg/L', label: '溶氧' },
+  TEMP: { green: [22, 28], yellow: [28, 30], unit: '℃', label: '水温' },
+  pH: { green: [7.0, 8.0], yellow: [6.5, 8.5], unit: 'pH', label: 'pH' },
+  NH3N: { green: [0, 0.2], yellow: [0.2, 0.3], unit: 'mg/L', label: '氨氮' },
+}
+
+function makeSensor(key: string, value: number): SensorInfo {
+  const t = THRESHOLDS[key]
+  const status = evaluate(key, value)
   return {
     key,
-    label: THRESHOLDS[key]?.label || key,
+    label: t.label,
     value,
     displayValue: value.toFixed(key === 'pH' ? 1 : 2),
-    unit: THRESHOLDS[key]?.unit || '',
+    unit: t.unit,
     status,
-    pct: getBarPct(key, value),
-    barColor: getBarColor(key, status),
-    thresholdText: getThresholdText(key),
+    thresholdText: `正常 ${t.green[0]}-${t.green[1]} ${t.unit}`,
   }
 }
 
-const pools = ref<PoolData[]>([
-  {
-    id: 'P01', base: 'A基地', breed: '石斑鱼', survivalRate: 94, fcr: 1.28, estimatedLoss: 0, healthScore: 87, riskLevel: 'green',
-    sensors: [
-      makePoolSensor('DO', 5.8),
-      makePoolSensor('pH', 7.6),
-      makePoolSensor('TEMP', 27.2),
-      makePoolSensor('NH3N', 0.15),
-    ],
-  },
-  {
-    id: 'P02', base: 'A基地', breed: '石斑鱼', survivalRate: 88, fcr: 1.35, estimatedLoss: 3.2, healthScore: 68, riskLevel: 'yellow',
-    sensors: [
-      makePoolSensor('DO', 5.2),
-      makePoolSensor('pH', 7.4),
-      makePoolSensor('TEMP', 27.8),
-      makePoolSensor('NH3N', 0.18),
-    ],
-  },
-  {
-    id: 'P04', base: 'B基地', breed: '东星斑', survivalRate: 72, fcr: 1.42, estimatedLoss: 18.5, healthScore: 41, riskLevel: 'red',
-    sensors: [
-      makePoolSensor('DO', 4.8),
-      makePoolSensor('pH', 7.2),
-      makePoolSensor('TEMP', 28.4),
-      makePoolSensor('NH3N', 0.25),
-    ],
-  },
-  {
-    id: 'P03', base: 'A基地', breed: '珍珠龙胆', survivalRate: 97, fcr: 1.22, estimatedLoss: 0, healthScore: 92, riskLevel: 'green',
-    sensors: [
-      makePoolSensor('DO', 6.1),
-      makePoolSensor('pH', 7.8),
-      makePoolSensor('TEMP', 26.8),
-      makePoolSensor('NH3N', 0.12),
-    ],
-  },
-  {
-    id: 'P05', base: 'B基地', breed: '老虎斑', survivalRate: 91, fcr: 1.31, estimatedLoss: 0, healthScore: 85, riskLevel: 'green',
-    sensors: [
-      makePoolSensor('DO', 5.5),
-      makePoolSensor('pH', 7.5),
-      makePoolSensor('TEMP', 27.0),
-      makePoolSensor('NH3N', 0.16),
-    ],
-  },
-])
-
-interface DeviceItem {
-  name: string
-  on: boolean
-  info: string
-  baseInfo: string
+function evaluate(key: string, value: number): SensorStatus {
+  const t = THRESHOLDS[key]
+  if (value >= t.green[0] && value <= t.green[1]) return 'normal'
+  if (value >= t.yellow[0] && value <= t.yellow[1]) return 'warning'
+  return 'danger'
 }
 
-const devices = ref<DeviceItem[]>([
-  { name: '增氧机 #01', on: true, info: '850 RPM · 4.2A', baseInfo: '850 RPM · 4.2A' },
-  { name: '增氧机 #02', on: true, info: '820 RPM · 3.9A', baseInfo: '820 RPM · 3.9A' },
-  { name: '投喂器 #01', on: false, info: '待机', baseInfo: '待机' },
-  { name: '循环泵 #01', on: true, info: '正常 · 1.8A', baseInfo: '正常 · 1.8A' },
-])
-
-function toggleDevice(d: DeviceItem) {
-  d.on = !d.on
-  d.info = d.on ? d.baseInfo : '已关闭'
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
 }
 
-const alerts = ref([
-  { time: '18:32', level: 'warning' as const, msg: 'AI 预测 DO 呈下降趋势' },
-  { time: '17:45', level: 'warning' as const, msg: 'pH 小时变化率异常' },
-  { time: '16:10', level: 'normal' as const, msg: '#02 增氧机维护完成' },
-  { time: '14:20', level: 'danger' as const, msg: 'P04 水温超 28°C 阈值' },
-  { time: '11:05', level: 'normal' as const, msg: '系统例行巡检通过' },
-])
-
-// ---- 时间/电量 ----
-const currentTime = ref('')
-const batteryPct = ref(88)
-let timeTimer: number | null = null
-
-function updateTime() {
-  const now = new Date()
-  currentTime.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+function poolNumber(poolCode: string) {
+  const parsed = Number(poolCode.replace(/\D/g, ''))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
 }
 
-// ---- 交互 ----
-const activePool = ref('P01')
-const currentPool = computed(() => pools.value.find(p => p.id === activePool.value) || pools.value[0])
-
-const healthLevel = computed(() => {
-  const s = currentPool.value.healthScore
-  if (s < 50) return 'critical'
-  if (s < 75) return 'warning'
-  return 'normal'
-})
-
-const healthColor = computed(() => {
-  if (healthLevel.value === 'critical') return '#ff1744'
-  if (healthLevel.value === 'warning') return '#ff6b35'
-  return '#00e676'
-})
-
-const overallLevel = computed(() => {
-  const reds = pools.value.filter(p => p.riskLevel === 'red').length
-  if (reds > 0) return 'red'
-  const yellows = pools.value.filter(p => p.riskLevel === 'yellow').length
-  if (yellows > 0) return 'yellow'
+function riskFromHealth(score: number, status: BackendProductionPool['status']): RiskLevel {
+  if (status === 'maintenance' || score < 55) return 'red'
+  if (score < 75) return 'yellow'
   return 'green'
+}
+
+function toPoolData(pool: BackendProductionPool): PoolData {
+  const index = poolNumber(pool.pool_code)
+  const density = pool.density_per_sqm ?? (pool.area_sqm > 0 ? Math.round((pool.fish_count / pool.area_sqm) * 100) / 100 : 0)
+  const isIdle = pool.status === 'idle' || pool.fish_count === 0
+  const doValue = isIdle ? 6.2 : clamp(6.25 - density / 18 - (index % 3) * 0.12, 4.65, 6.3)
+  const tempValue = clamp(26.4 + (index % 5) * 0.35 + density / 80, 24.5, 29.2)
+  const phValue = clamp(7.35 + (index % 4) * 0.12, 7.1, 8.1)
+  const nh3nValue = clamp(0.1 + density / 220 + (index % 3) * 0.015, 0.08, 0.28)
+  const pressurePenalty = isIdle ? -5 : density > 25 ? 18 : density > 18 ? 10 : 0
+  const statusPenalty = pool.status === 'maintenance' ? 35 : 0
+  const healthScore = clamp(Math.round(94 - pressurePenalty - statusPenalty - (index % 4) * 2), 42, 96)
+
+  return {
+    id: pool.pool_code,
+    base: pool.base_name,
+    breed: pool.breed,
+    fishCount: pool.fish_count,
+    densityPerSqm: density,
+    status: pool.status,
+    survivalRate: clamp(Math.round(98 - pressurePenalty / 2 - (index % 3)), 70, 99),
+    fcr: Number((1.18 + density / 90 + (index % 4) * 0.03).toFixed(2)),
+    healthScore,
+    riskLevel: riskFromHealth(healthScore, pool.status),
+    sensors: [
+      makeSensor('DO', doValue),
+      makeSensor('pH', phValue),
+      makeSensor('TEMP', tempValue),
+      makeSensor('NH3N', nh3nValue),
+    ],
+    latestBatchCode: pool.latest_batch?.batch_code,
+  }
+}
+
+const fallbackPools: PoolData[] = [
+  {
+    id: 'P01',
+    base: 'A基地',
+    breed: '石斑鱼',
+    fishCount: 12000,
+    densityPerSqm: 24,
+    status: 'active',
+    survivalRate: 94,
+    fcr: 1.28,
+    healthScore: 87,
+    riskLevel: 'green',
+    sensors: [makeSensor('DO', 5.8), makeSensor('pH', 7.6), makeSensor('TEMP', 27.2), makeSensor('NH3N', 0.15)],
+  },
+  {
+    id: 'P02',
+    base: 'A基地',
+    breed: '石斑鱼',
+    fishCount: 10500,
+    densityPerSqm: 21,
+    status: 'active',
+    survivalRate: 88,
+    fcr: 1.35,
+    healthScore: 68,
+    riskLevel: 'yellow',
+    sensors: [makeSensor('DO', 5.2), makeSensor('pH', 7.4), makeSensor('TEMP', 27.8), makeSensor('NH3N', 0.18)],
+  },
+  {
+    id: 'P03',
+    base: 'A基地',
+    breed: '珍珠龙胆',
+    fishCount: 8000,
+    densityPerSqm: 16,
+    status: 'active',
+    survivalRate: 97,
+    fcr: 1.22,
+    healthScore: 92,
+    riskLevel: 'green',
+    sensors: [makeSensor('DO', 6.1), makeSensor('pH', 7.8), makeSensor('TEMP', 26.8), makeSensor('NH3N', 0.12)],
+  },
+  {
+    id: 'P04',
+    base: 'B基地',
+    breed: '东星斑',
+    fishCount: 15000,
+    densityPerSqm: 23.08,
+    status: 'active',
+    survivalRate: 72,
+    fcr: 1.42,
+    healthScore: 41,
+    riskLevel: 'red',
+    sensors: [makeSensor('DO', 4.8), makeSensor('pH', 7.2), makeSensor('TEMP', 28.4), makeSensor('NH3N', 0.25)],
+  },
+]
+
+const pools = ref<PoolData[]>(fallbackPools)
+
+const requestActions: RequestAction[] = [
+  { device_name: '增氧机 #01', action_type: 'device_stop', action_label: '停用设备', priority: 'normal' },
+  { device_name: '增氧机 #02', action_type: 'device_start', action_label: '启用设备', priority: 'normal' },
+  { device_name: '投喂器 #01', action_type: 'stop_feed', action_label: '暂停投喂', priority: 'normal' },
+  { device_name: '增氧机组', action_type: 'full_aeration', action_label: '全负荷增氧', priority: 'urgent' },
+]
+
+const activePool = ref('P01')
+const loading = ref(false)
+const submitting = ref(false)
+const requests = ref<FieldRequest[]>([])
+const tasks = ref<FieldTask[]>([])
+const message = ref<{ kind: 'success' | 'error' | 'idle'; text: string }>({ kind: 'idle', text: '' })
+
+const requestForm = ref({
+  open: false,
+  device_name: '',
+  action_type: '',
+  action_label: '',
+  priority: 'normal' as Priority,
+  reason: '',
+  note: '',
+  safety_text: '',
 })
 
-const overallText = computed(() => {
-  if (overallLevel.value === 'red') return '紧急'
-  if (overallLevel.value === 'yellow') return '关注'
-  return '正常'
-})
+const visiblePools = computed(() => pools.value.filter(pool => auth.canSeeBase(pool.base)))
+const currentPool = computed(() => visiblePools.value.find(pool => pool.id === activePool.value) || visiblePools.value[0] || pools.value[0])
+const visibleRequests = computed(() => requests.value.slice(0, 6))
+const visibleTasks = computed(() => tasks.value.slice(0, 4))
 
-// ---- 滑动解锁 + 倒计时 ----
-const slideTrackRef = ref<HTMLDivElement>()
-const unlocked = ref(false)
-const confirming = ref(false)
-const isSliding = ref(false)
-const slidePct = ref(0)
-const countdown = ref(30)
-const SLIDE_THRESHOLD = 75
-let countdownTimer: number | null = null
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...auth.getAuthHeaders(),
+      ...(init?.headers || {}),
+    },
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || `HTTP ${res.status}`)
+  }
+  return data
+}
 
-function startCountdown() {
-  countdown.value = 30
-  countdownTimer = window.setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      unlocked.value = false
-      slidePct.value = 0
-      if (countdownTimer) clearInterval(countdownTimer)
-      countdownTimer = null
+async function loadFieldData() {
+  loading.value = true
+  try {
+    const [poolRes, taskRes, requestRes] = await Promise.all([
+      api<{ pools: BackendProductionPool[] }>('/api/v1/production/pools'),
+      api<{ tasks: FieldTask[] }>('/api/v1/field/tasks'),
+      api<{ requests: FieldRequest[] }>('/api/v1/field/requests'),
+    ])
+    const loadedPools = poolRes.pools.map(toPoolData)
+    pools.value = loadedPools.length ? loadedPools : fallbackPools
+    if (!pools.value.some(pool => pool.id === activePool.value)) {
+      activePool.value = pools.value[0]?.id || 'P01'
     }
-  }, 1000)
-}
-
-function calcSlidePct(clientX: number): number {
-  if (!slideTrackRef.value) return 0
-  const rect = slideTrackRef.value.getBoundingClientRect()
-  return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
-}
-
-function onSlideStart(e: MouseEvent | TouchEvent) {
-  if (unlocked.value) return
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  isSliding.value = true
-  slidePct.value = calcSlidePct(clientX)
-  window.addEventListener('mousemove', onSlideMove)
-  window.addEventListener('mouseup', onSlideEnd)
-  window.addEventListener('touchmove', onSlideMove, { passive: false })
-  window.addEventListener('touchend', onSlideEnd)
-}
-
-function onSlideMove(e: MouseEvent | TouchEvent) {
-  if (!isSliding.value) return
-  const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX
-  slidePct.value = calcSlidePct(clientX)
-}
-
-function onSlideEnd() {
-  if (!isSliding.value) return
-  isSliding.value = false
-  if (slidePct.value >= SLIDE_THRESHOLD) {
-    unlocked.value = true
-    slidePct.value = 100
-    startCountdown()
-  } else {
-    slidePct.value = 0
+    tasks.value = taskRes.tasks
+    requests.value = requestRes.requests
+  } catch (err) {
+    showMessage('error', err instanceof Error ? err.message : '现场数据加载失败')
+  } finally {
+    loading.value = false
   }
-  window.removeEventListener('mousemove', onSlideMove)
-  window.removeEventListener('mouseup', onSlideEnd)
-  window.removeEventListener('touchmove', onSlideMove)
-  window.removeEventListener('touchend', onSlideEnd)
 }
 
-const { notify, ensurePermission } = useNotification()
-
-function triggerEmergency(action: string) {
-  confirming.value = true
-  const msgs: Record<string, string> = {
-    full_aeration: '全负荷增氧指令已发送',
-    freq_up: '增氧频率 +15% 指令已发送',
-    stop_feed: '停止投喂指令已发送',
+function openRequest(action: RequestAction) {
+  requestForm.value = {
+    open: true,
+    device_name: action.device_name,
+    action_type: action.action_type,
+    action_label: action.action_label,
+    priority: action.priority,
+    reason: '',
+    note: '',
+    safety_text: '',
   }
-  const msg = msgs[action] || action
-  const alert = { time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), level: 'danger' as const, msg }
-  alerts.value.unshift(alert)
-  notify('应急指令已执行', `${currentPool.value.id}: ${msg}`, 'red')
-  setTimeout(() => {
-    confirming.value = false
-    unlocked.value = false
-    slidePct.value = 0
-    if (countdownTimer) clearInterval(countdownTimer)
-    countdownTimer = null
-  }, 2000)
 }
 
-// ---- 生命周期 ----
-onMounted(() => {
-  updateTime()
-  timeTimer = window.setInterval(updateTime, 10000)
-  ensurePermission()
-})
+function resetRequestForm() {
+  requestForm.value = {
+    open: false,
+    device_name: '',
+    action_type: '',
+    action_label: '',
+    priority: 'normal',
+    reason: '',
+    note: '',
+    safety_text: '',
+  }
+}
 
-onUnmounted(() => {
-  if (timeTimer) clearInterval(timeTimer)
-  if (countdownTimer) clearInterval(countdownTimer)
-})
+async function submitRequest() {
+  submitting.value = true
+  try {
+    const payload = {
+      base_name: currentPool.value.base,
+      pool_code: currentPool.value.id,
+      device_name: requestForm.value.device_name,
+      action_type: requestForm.value.action_type,
+      action_label: requestForm.value.action_label,
+      priority: requestForm.value.priority,
+      reason: requestForm.value.reason,
+      note: requestForm.value.note,
+      safety_text: requestForm.value.safety_text,
+    }
+    const res = await api<{ request: FieldRequest }>('/api/v1/field/requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    requests.value.unshift(res.request)
+    resetRequestForm()
+    showMessage('success', '申请已提交，等待管理员处理。')
+  } catch (err) {
+    showMessage('error', err instanceof Error ? err.message : '提交失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function confirmRequest(request: FieldRequest) {
+  try {
+    const res = await api<{ request: FieldRequest }>(`/api/v1/field/requests/${request.id}/confirm`, {
+      method: 'PATCH',
+      body: JSON.stringify({ message: `${request.pool_code} ${request.action_label} 已按管理员意见执行。` }),
+    })
+    requests.value = requests.value.map(item => item.id === request.id ? res.request : item)
+    showMessage('success', '已确认完成。')
+  } catch (err) {
+    showMessage('error', err instanceof Error ? err.message : '确认失败')
+  }
+}
+
+async function completeTask(task: FieldTask) {
+  try {
+    const res = await api<{ task: FieldTask }>(`/api/v1/field/tasks/${task.id}/complete`, {
+      method: 'PATCH',
+      body: JSON.stringify({ note: `${task.pool_code} 巡检完成，指标已检查。` }),
+    })
+    tasks.value = tasks.value.map(item => item.id === task.id ? res.task : item)
+    showMessage('success', '巡检任务已完成。')
+  } catch (err) {
+    showMessage('error', err instanceof Error ? err.message : '巡检任务保存失败')
+  }
+}
+
+function showMessage(kind: 'success' | 'error' | 'idle', text: string) {
+  message.value = { kind, text }
+}
+
+function statusLabel(request: FieldRequest) {
+  const labels: Record<RequestStatus, string> = {
+    waiting_review: '待管理员处理',
+    approved: '已同意',
+    rejected: '已驳回',
+    completed: '已完成',
+  }
+  return request.status_label || labels[request.status]
+}
+
+function riskText(level: RiskLevel) {
+  if (level === 'red') return '需重点关注'
+  if (level === 'yellow') return '注意观察'
+  return '状态稳定'
+}
+
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+onMounted(loadFieldData)
 </script>
 
 <style scoped>
-/* 手机壳 */
-.mobile-shell {
+.field-page {
   flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 10px;
+  min-height: 0;
   overflow-y: auto;
   background: var(--bg-primary);
+  padding: 16px;
 }
 
-.mobile-phone {
-  width: 100%;
-  max-width: 420px;
-  background: var(--bg-secondary);
+.field-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-header,
+.pool-summary,
+.field-panel {
+  background: #ffffff;
   border: 1px solid var(--border-color);
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 0 40px rgba(0,212,255,0.05);
+  border-radius: 8px;
 }
 
-/* 状态栏 */
-.phone-statusbar {
+.field-header {
+  min-height: 92px;
+  padding: 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 8px 20px;
-  font-size: 11px;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  display: block;
+  color: var(--accent-blue);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.field-header h1 {
+  color: var(--text-primary);
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+
+.field-header p,
+.panel-heading p,
+.request-row p,
+.task-row p,
+.pool-summary em,
+.metric-card em {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.pool-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.pool-tab,
+.plain-btn,
+.primary-btn,
+.action-card {
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.pool-tab {
+  min-width: 76px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pool-tab.active {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+  font-weight: 700;
+}
+
+.risk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.risk-dot.green {
+  background: var(--accent-green);
+}
+
+.risk-dot.yellow {
+  background: var(--accent-orange);
+}
+
+.risk-dot.red {
+  background: var(--accent-red);
+}
+
+.pool-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pool-summary div {
+  padding: 14px 16px;
+  border-right: 1px solid var(--border-color);
+}
+
+.pool-summary div:last-child {
+  border-right: none;
+}
+
+.pool-summary span,
+.metric-card span {
+  display: block;
   color: var(--text-dim);
-  font-family: var(--font-mono);
-  background: var(--bg-primary);
+  font-size: 12px;
 }
-.signal-bars { letter-spacing: 1px; color: var(--text-secondary); }
-.battery { margin-left: 4px; color: var(--accent-green); }
 
-/* App 头 */
-.app-header {
+.pool-summary strong {
+  display: block;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 4px 0;
+}
+
+.pool-summary strong.green {
+  color: var(--accent-green);
+}
+
+.pool-summary strong.yellow {
+  color: var(--accent-orange);
+}
+
+.pool-summary strong.red {
+  color: var(--accent-red);
+}
+
+.field-panel {
+  padding: 14px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-heading h2 {
+  font-size: 16px;
+  line-height: 1.3;
+  margin: 0 0 3px;
+  color: var(--text-primary);
+}
+
+.metric-grid,
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-muted);
+}
+
+.metric-card.warning {
+  border-color: #e7c5a6;
+  background: var(--accent-orange-dim);
+}
+
+.metric-card.danger {
+  border-color: #e3b7b4;
+  background: var(--accent-red-dim);
+}
+
+.metric-card strong {
+  display: block;
+  margin: 8px 0 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.metric-card small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.action-card {
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  text-align: left;
+}
+
+.action-card:hover {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.action-card.urgent {
+  border-color: #e7c5a6;
+}
+
+.action-card strong,
+.action-card span,
+.action-card em {
+  display: block;
+}
+
+.action-card strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.action-card span {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.action-card em {
+  margin-top: 10px;
+  color: var(--accent-blue);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.action-card.urgent em {
+  color: var(--accent-orange);
+}
+
+.request-form {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-muted);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.form-title {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
-.app-header-left { display: flex; align-items: center; gap: 10px; }
-.app-logo {
-  font-weight: 800; font-size: 14px; letter-spacing: 0.15em;
+
+.form-title strong {
+  color: var(--text-primary);
+}
+
+.request-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.request-form label:nth-of-type(2) {
+  grid-column: 1 / -1;
+}
+
+.request-form select,
+.request-form input,
+.request-form textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text-primary);
+  padding: 8px 10px;
+  outline: none;
+  resize: vertical;
+}
+
+.request-form select,
+.request-form input {
+  min-height: 34px;
+}
+
+.request-form select:focus,
+.request-form input:focus,
+.request-form textarea:focus {
+  border-color: var(--accent-blue);
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.plain-btn,
+.primary-btn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.plain-btn:hover {
+  border-color: var(--accent-blue);
   color: var(--accent-blue);
 }
-.app-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.app-badge {
-  font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 10px;
-}
-.app-badge.green { background: var(--accent-green-dim); color: var(--accent-green); }
-.app-badge.yellow { background: var(--accent-orange-dim); color: var(--accent-orange); }
-.app-badge.red { background: rgba(255,23,68,0.15); color: var(--accent-red); }
 
-/* 池 Tab */
-.pool-tabs {
-  display: flex; gap: 0; padding: 6px 12px;
-  background: var(--bg-primary); overflow-x: auto;
-}
-.pool-tab {
-  flex: 1; padding: 6px 0; border: none;
-  background: transparent; color: var(--text-dim);
-  font-family: var(--font-mono); font-size: 12px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  border-bottom: 2px solid transparent; transition: all 0.2s;
-}
-.pool-tab.active { color: var(--text-primary); border-bottom-color: var(--accent-blue); }
-.pool-tab.active.yellow { border-bottom-color: var(--accent-orange); color: var(--accent-orange); }
-.pool-tab.active.red { border-bottom-color: var(--accent-red); color: var(--accent-red); }
-.tab-dot { width: 6px; height: 6px; border-radius: 50%; }
-.tab-dot.green { background: var(--accent-green); }
-.tab-dot.yellow { background: var(--accent-orange); }
-.tab-dot.red { background: var(--accent-red); }
-
-/* 健康分值卡片 */
-.health-card {
-  margin: 10px 12px; padding: 16px; border-radius: 14px;
-  background: var(--bg-panel); border: 1px solid var(--border-color);
-  display: flex; align-items: center; gap: 20px;
-  transition: border-color 0.3s;
-}
-.health-card.warning { border-color: var(--accent-orange); }
-.health-card.critical { border-color: var(--accent-red); animation: breathe-red 2s ease-in-out infinite; }
-.health-ring { position: relative; width: 90px; height: 90px; flex-shrink: 0; }
-.health-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.health-arc { transition: stroke-dashoffset 0.6s ease, stroke 0.3s; }
-.health-center {
-  position: absolute; inset: 0; display: flex;
-  flex-direction: column; align-items: center; justify-content: center;
-}
-.health-score {
-  font-family: var(--font-mono); font-size: 28px; font-weight: 700;
-  color: var(--text-primary); line-height: 1;
-}
-.health-score.heartbeat { animation: heartbeat 1s ease-in-out infinite; }
-.health-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; margin-top: 2px; }
-.health-meta { flex: 1; display: flex; flex-direction: column; gap: 10px; }
-.health-stat { display: flex; justify-content: space-between; align-items: center; }
-.hs-label { font-size: 11px; color: var(--text-dim); }
-.hs-value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.hs-value.green { color: var(--accent-green); }
-.hs-value.warn { color: var(--accent-orange); }
-.hs-value.danger { color: var(--accent-red); }
-
-/* 区域标题 */
-.section-title {
-  font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase;
-  padding: 12px 16px 6px; letter-spacing: 0.1em;
-  display: flex; align-items: center; gap: 8px;
-}
-.countdown-badge {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
-  color: var(--accent-red); background: rgba(255,23,68,0.12);
-  padding: 2px 8px; border-radius: 10px;
-  animation: alert-blink 1s ease-in-out infinite;
+.plain-btn:disabled,
+.primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
-/* 指标卡片 */
-.indicator-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  padding: 0 12px;
-}
-.indicator-card {
-  background: var(--bg-card); border: 1px solid var(--border-color);
-  border-radius: 10px; padding: 12px;
-  transition: border-color 0.3s;
-}
-.indicator-card.severity-warning { border-color: rgba(255,107,53,0.3); }
-.indicator-card.severity-danger { border-color: rgba(255,23,68,0.4); animation: breathe-red 2s ease-in-out infinite; }
-.indicator-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.indicator-name { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
-.severity-marker { font-size: 12px; }
-.severity-marker.normal { color: var(--accent-green); }
-.severity-marker.warning { color: var(--accent-orange); }
-.severity-marker.danger { color: var(--accent-red); }
-.severity-marker.small { font-size: 10px; flex-shrink: 0; }
-.indicator-body { display: flex; align-items: baseline; gap: 3px; margin-bottom: 8px; }
-.indicator-value {
-  font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1;
-}
-.indicator-value.warning { color: var(--accent-orange); }
-.indicator-value.danger { color: var(--accent-red); }
-.indicator-unit { font-size: 10px; color: var(--text-dim); }
-.indicator-bar-track {
-  height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-bottom: 4px; overflow: hidden;
-}
-.indicator-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
-.indicator-range { font-size: 9px; color: var(--text-dim); }
-.text-danger { color: var(--accent-red); }
-
-/* 设备网格 */
-.device-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-  padding: 0 12px;
-}
-.device-card {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--bg-card); border-radius: 8px; padding: 10px;
-  transition: background 0.2s;
-}
-.device-card.on { background: rgba(0,230,118,0.03); }
-.device-icon { font-size: 18px; cursor: pointer; }
-.device-icon .device-power { color: var(--text-dim); transition: color 0.2s; }
-.device-icon.on .device-power { color: var(--accent-green); }
-.device-info { flex: 1; min-width: 0; }
-.device-name { font-size: 11px; color: var(--text-primary); display: block; }
-.device-detail { font-size: 9px; color: var(--text-dim); font-family: var(--font-mono); }
-.device-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
-.device-switch input { opacity: 0; width: 0; height: 0; }
-.switch-slider {
-  position: absolute; inset: 0; cursor: pointer;
-  background: rgba(255,255,255,0.1); border-radius: 22px;
-  transition: background 0.2s;
-}
-.switch-slider::before {
-  content: ''; position: absolute; height: 16px; width: 16px;
-  left: 3px; bottom: 3px; background: var(--text-dim);
-  border-radius: 50%; transition: transform 0.2s, background 0.2s;
-}
-.device-switch input:checked + .switch-slider { background: var(--accent-green-dim); }
-.device-switch input:checked + .switch-slider::before {
-  transform: translateX(18px); background: var(--accent-green);
+.primary-btn {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue);
+  color: #ffffff;
 }
 
-/* 滑动解锁 */
-.emergency-panel {
-  margin: 0 12px 6px; padding: 12px;
-  background: var(--bg-panel); border: 1px solid var(--border-color);
-  border-radius: 12px; transition: border-color 0.3s;
+.primary-btn.small {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
 }
-.emergency-panel.unlocked { border-color: var(--accent-red); }
-.emergency-panel.confirming { border-color: var(--accent-green); }
 
-.slide-track {
-  position: relative; height: 48px;
-  background: var(--bg-card); border-radius: 24px;
-  overflow: hidden; cursor: pointer; user-select: none;
+.message-line {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 13px;
 }
-.slide-bg-text {
-  position: absolute; inset: 0; display: flex;
-  align-items: center; justify-content: center;
-  font-size: 11px; color: var(--text-dim); letter-spacing: 0.05em;
-}
-.slide-fill {
-  position: absolute; left: 0; top: 0; height: 100%;
-  background: linear-gradient(90deg, var(--accent-red), var(--accent-orange));
-  border-radius: 24px 0 0 24px; transition: width 0.1s;
-}
-.slide-thumb {
-  position: absolute; top: 4px;
-  width: 40px; height: 40px; border-radius: 50%;
-  background: var(--bg-primary); border: 2px solid var(--accent-red);
-  display: flex; align-items: center; justify-content: center;
-  transform: translateX(-50%); transition: left 0.1s; z-index: 2;
-}
-.slide-thumb.sliding { border-color: var(--accent-orange); box-shadow: 0 0 8px rgba(255,107,53,0.4); }
-.slide-icon { font-size: 16px; color: var(--accent-red); font-weight: 700; }
 
-.emergency-actions { display: flex; gap: 6px; margin-top: 10px; animation: fade-in 0.3s ease; }
-.emergency-btn {
-  flex: 1; padding: 10px 4px; border: none; border-radius: 8px;
-  font-size: 10px; font-weight: 700; cursor: pointer; color: #000;
-  transition: transform 0.15s; display: flex; flex-direction: column;
-  align-items: center; gap: 2px;
+.message-line.success {
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
 }
-.emergency-btn:active { transform: scale(0.96); }
-.emergency-btn.critical { background: var(--accent-red); color: #fff; }
-.emergency-btn.warning { background: var(--accent-orange); }
-.emergency-btn.info { background: var(--accent-blue); }
-.eb-icon { font-size: 14px; }
 
-/* 告警列表 */
-.alert-list { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; }
-.alert-row { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.alert-row.severity-danger { background: rgba(255,23,68,0.03); border-radius: 4px; padding-left: 6px; }
-.alert-row.severity-warning { background: rgba(255,107,53,0.03); border-radius: 4px; padding-left: 6px; }
-.alert-time { color: var(--text-dim); font-family: var(--font-mono); min-width: 36px; }
-.alert-msg { color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.message-line.error {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
 
-/* 底部 */
-.phone-bottom { padding: 12px; text-align: center; background: var(--bg-primary); border-top: 1px solid var(--border-color); }
-.bottom-hint { font-size: 9px; color: var(--text-dim); }
+.empty-state {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  background: var(--bg-muted);
+}
+
+.request-row,
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.request-row + .request-row,
+.task-row + .task-row {
+  margin-top: 8px;
+}
+
+.request-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.request-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.request-title strong,
+.task-row strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.review-text {
+  margin-top: 5px;
+  color: var(--text-primary);
+}
+
+.request-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: 700;
+  background: #ffffff;
+}
+
+.status-pill.waiting_review {
+  color: var(--accent-orange);
+  border-color: #e7c5a6;
+  background: var(--accent-orange-dim);
+}
+
+.status-pill.approved {
+  color: var(--accent-blue);
+  border-color: #bfd6df;
+  background: var(--accent-blue-dim);
+}
+
+.status-pill.rejected {
+  color: var(--accent-red);
+  border-color: #e3b7b4;
+  background: var(--accent-red-dim);
+}
+
+.status-pill.completed {
+  color: var(--accent-green);
+  border-color: #b9d7c6;
+  background: var(--accent-green-dim);
+}
+
+.task-row.done {
+  opacity: 0.7;
+}
+
+@media (max-width: 820px) {
+  .field-page {
+    padding: 10px;
+  }
+
+  .field-header,
+  .pool-summary,
+  .request-row,
+  .task-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pool-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .pool-summary div {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .pool-summary div:last-child {
+    border-bottom: none;
+  }
+
+  .metric-grid,
+  .action-grid,
+  .request-form {
+    grid-template-columns: 1fr;
+  }
+
+  .request-side {
+    align-items: flex-start;
+  }
+}
 </style>

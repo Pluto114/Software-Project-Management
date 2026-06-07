@@ -6,7 +6,10 @@
  */
 
 import { Request, Response } from 'express'
+import Redis from 'ioredis'
 import { SignerService } from '../services/signer.service'
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 // 指令类型
 const CMD_AERATOR_ON = 0x10
@@ -58,11 +61,12 @@ interface PendingCommand {
 
 export class CommandController {
   private signer = new SignerService()
+  private redis: Redis | null = null
   private pendingQueue: PendingCommand[] = []
   private emergencyOverride = false
 
   /** POST /api/v1/control/command */
-  issueCommand(req: Request, res: Response): void {
+  async issueCommand(req: Request, res: Response): Promise<void> {
     const { device_id, command } = req.body
 
     if (!device_id) {
@@ -116,6 +120,7 @@ export class CommandController {
     if (this.emergencyOverride && priority > 0) {
       record.status = 'failed'
       cmdHistory.push(record)
+      await this.publishCommandResult(record, device_id, priority)
       res.status(409).json({
         error: 'emergency_override_active',
         message: '紧急停机模式激活中，非紧急指令已拒绝',
@@ -136,6 +141,8 @@ export class CommandController {
       executed.record.status = 'executed'
       console.log(`[control] executed ${executed.record.cmdName} → ${device_id} (priority=${priority})`)
     }
+
+    await this.publishCommand(record, frame, device_id, priority, req.body.params || {})
 
     const result: any = {
       id: record.id,
@@ -201,6 +208,79 @@ export class CommandController {
     res.json({
       total: cmdHistory.length,
       recent: cmdHistory.slice(-20).reverse(),
+    })
+  }
+
+  async close(): Promise<void> {
+    if (this.redis && this.redis.status !== 'end') {
+      await this.redis.quit()
+    }
+    this.redis = null
+  }
+
+  private ensureRedis(): Redis {
+    if (!this.redis) {
+      this.redis = new Redis(REDIS_URL, {
+        connectTimeout: 500,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 3,
+        retryStrategy(times) {
+          if (times > 2) return null
+          return Math.min(times * 200, 2000)
+        },
+        lazyConnect: true,
+      })
+      this.redis.on('connect', () => console.log('[control] Redis connected'))
+      this.redis.on('error', (err) => console.warn('[control] Redis error:', err.message))
+    }
+    return this.redis
+  }
+
+  private async publish(channel: string, event: Record<string, unknown>): Promise<void> {
+    try {
+      const redis = this.ensureRedis()
+      if (redis.status === 'wait') {
+        await redis.connect()
+      }
+      await redis.publish(channel, JSON.stringify(event))
+    } catch (err: any) {
+      console.warn(`[control] ${channel} publish skipped: ${err.message}`)
+    }
+  }
+
+  private async publishCommand(
+    record: CommandRecord,
+    frame: Buffer,
+    deviceId: string,
+    priority: number,
+    params: Record<string, unknown>,
+  ): Promise<void> {
+    await this.publish('control_command', {
+      id: record.id,
+      device_id: deviceId,
+      command: record.cmdName,
+      command_code: record.command,
+      params,
+      priority,
+      nonce: record.nonce,
+      frame_hex: frame.toString('hex'),
+      ts: record.createdAt,
+      status: 'sent',
+    })
+    await this.publishCommandResult(record, deviceId, priority)
+  }
+
+  private async publishCommandResult(record: CommandRecord, deviceId: string, priority: number): Promise<void> {
+    await this.publish('cmd_result', {
+      id: record.id,
+      device_id: deviceId,
+      command: record.cmdName,
+      command_code: record.command,
+      priority,
+      status: record.status,
+      emergency_override: this.emergencyOverride,
+      queue_length: this.pendingQueue.length,
+      ts: Date.now(),
     })
   }
 }

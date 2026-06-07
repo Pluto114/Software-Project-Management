@@ -689,10 +689,11 @@ function onResize() {
   left: 50%;
   transform: translateX(-50%);
   font-size: 11px;
-  color: var(--text-dim);
-  background: rgba(10, 14, 23, 0.7);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
   padding: 4px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   pointer-events: none;
 }
 
@@ -709,8 +710,8 @@ function onResize() {
 .vc-btn {
   width: 36px; height: 36px; border-radius: 8px;
   border: 1px solid var(--border-color);
-  background: rgba(10, 14, 23, 0.8);
-  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
   font-size: 14px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.2s;
@@ -720,7 +721,7 @@ function onResize() {
 .vc-btn.active {
   border-color: var(--accent-blue);
   color: var(--accent-blue);
-  background: rgba(0, 212, 255, 0.1);
+  background: var(--accent-blue-dim);
 }
 .vc-icon { line-height: 1; }
 </style>

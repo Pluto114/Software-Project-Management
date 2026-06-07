@@ -10,10 +10,10 @@
         <div class="risk-status-large">
           <span class="status-dot large" :class="store.alertLevel"></span>
           <span class="risk-text" v-if="store.alertLevel === 'green'">正常运行</span>
-          <span class="risk-text" v-else-if="store.alertLevel === 'yellow'">AI 预警</span>
+          <span class="risk-text" v-else-if="store.alertLevel === 'yellow'">趋势预警</span>
           <span class="risk-text" v-else>紧急告警</span>
         </div>
-        <div class="risk-score">健康分值 <strong>87</strong>/100</div>
+        <div class="risk-score">健康分值 <strong>{{ currentProductionHealth }}</strong>/100</div>
       </div>
 
       <!-- 实时传感器仪表盘 -->
@@ -50,24 +50,41 @@
           </div>
         </div>
       </div>
+
+      <div class="panel pool-panel">
+        <div class="panel-header">
+          <span class="panel-title">后端资产池</span>
+          <span class="pool-count">{{ productionPools.length }} 个</span>
+        </div>
+        <div v-if="productionPools.length === 0" class="pool-empty">正在读取后端资产数据</div>
+        <div v-else class="pool-list">
+          <div v-for="pool in productionPools" :key="pool.id" class="pool-item">
+            <div>
+              <strong>{{ pool.pool_code }}</strong>
+              <span>{{ pool.base_name }} · {{ pool.breed }}</span>
+            </div>
+            <em>{{ pool.fish_count.toLocaleString() }} 尾</em>
+          </div>
+        </div>
+      </div>
     </aside>
 
     <!-- 中央：3D 数字孪生 -->
     <main class="center-view">
       <ThreeScene />
       <div class="pool-label">
-        <span>养殖池 #01 · 3D 数字孪生</span>
-        <span class="pool-coords">720° 自由视角</span>
+        <span>{{ currentProductionPool?.pool_code || 'P01' }} · {{ currentProductionPool?.breed || '养殖池' }} · 3D 数字孪生</span>
+        <span class="pool-coords">{{ currentProductionPool ? currentProductionPool.fish_count.toLocaleString() + ' 尾' : '720° 自由视角' }}</span>
       </div>
     </main>
 
-    <!-- 右侧面板：AI 风险预演 -->
+    <!-- 右侧面板：风险预演 -->
     <aside class="right-panel">
-      <!-- AI 预测 -->
+      <!-- 趋势预估 -->
       <div class="panel ai-panel">
         <div class="panel-header">
-          <span class="panel-title">AI 风险预演</span>
-          <span class="panel-badge blue">LSTM 预测</span>
+          <span class="panel-title">风险预演</span>
+          <span class="panel-badge blue">趋势模型</span>
         </div>
         <div class="prediction-summary">
           <div class="prediction-header-row">
@@ -133,23 +150,65 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useSensorStore } from '../stores/sensorData'
+import { useAuthStore } from '../stores/auth'
 import ThreeScene from '../components/ThreeScene.vue'
 
 const store = useSensorStore()
+const auth = useAuthStore()
 
-onMounted(() => store.startSimulation())
+interface ProductionPool {
+  id: string
+  pool_code: string
+  base_name: string
+  breed: string
+  fish_count: number
+  area_sqm: number
+  status: 'active' | 'maintenance' | 'idle'
+  density_per_sqm?: number
+}
+
+const productionPools = ref<ProductionPool[]>([])
+const currentProductionPool = computed(() => productionPools.value[0])
+const currentProductionHealth = computed(() => {
+  const pool = currentProductionPool.value
+  if (!pool) return 87
+  if (pool.status === 'maintenance') return 55
+  const density = pool.density_per_sqm ?? (pool.area_sqm > 0 ? pool.fish_count / pool.area_sqm : 0)
+  return Math.max(60, Math.min(94, Math.round(94 - Math.max(0, density - 18) * 1.2)))
+})
+
+async function loadProductionPools() {
+  try {
+    const res = await fetch('/api/v1/production/pools', {
+      headers: {
+        'Content-Type': 'application/json',
+        ...auth.getAuthHeaders(),
+      },
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+    productionPools.value = data.pools || []
+  } catch {
+    productionPools.value = []
+  }
+}
+
+onMounted(() => {
+  store.startSimulation()
+  loadProductionPools()
+})
 onUnmounted(() => store.stopSimulation())
 
 // 模拟传感器数据
 const sensors = ref([
-  { name: '溶解氧 (DO)', value: '5.8', unit: 'mg/L', pct: 58, min: '0', max: '10', color: '#00F2FF' },
-  { name: '酸碱度 (pH)', value: '7.6', unit: 'pH', pct: 54, min: '0', max: '14', color: '#00E676' },
-  { name: '水温 (Temp)', value: '27.2', unit: '°C', pct: 68, min: '0', max: '40', color: '#FF8C00' },
-  { name: '氨氮 (NH₃-N)', value: '0.15', unit: 'mg/L', pct: 30, min: '0', max: '0.5', color: '#FFD600' },
-  { name: '电导率', value: '2.4', unit: 'mS/cm', pct: 48, min: '0', max: '5', color: '#7C4DFF' },
-  { name: 'ORP', value: '320', unit: 'mV', pct: 64, min: '0', max: '500', color: '#448AFF' },
+  { name: '溶解氧 (DO)', value: '5.8', unit: 'mg/L', pct: 58, min: '0', max: '10', color: '#256f8f' },
+  { name: '酸碱度 (pH)', value: '7.6', unit: 'pH', pct: 54, min: '0', max: '14', color: '#2f7d57' },
+  { name: '水温 (Temp)', value: '27.2', unit: '°C', pct: 68, min: '0', max: '40', color: '#b86525' },
+  { name: '氨氮 (NH₃-N)', value: '0.15', unit: 'mg/L', pct: 30, min: '0', max: '0.5', color: '#b7791f' },
+  { name: '电导率', value: '2.4', unit: 'mS/cm', pct: 48, min: '0', max: '5', color: '#7b8794' },
+  { name: 'ORP', value: '320', unit: 'mV', pct: 64, min: '0', max: '500', color: '#5b7c99' },
 ])
 
 const devices = ref([
@@ -160,7 +219,7 @@ const devices = ref([
 ])
 
 const alerts = ref([
-  { time: '18:32', level: 'yellow', msg: 'AI 预测 DO 呈下降趋势' },
+  { time: '18:32', level: 'yellow', msg: 'DO 呈下降趋势' },
   { time: '17:45', level: 'yellow', msg: 'pH 小时变化率异常' },
   { time: '16:10', level: 'green', msg: '增氧机 #02 例行维护完成' },
   { time: '14:20', level: 'yellow', msg: '水温超过 28°C 阈值' },
@@ -207,16 +266,17 @@ const alerts = ref([
   font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
   padding: 2px 8px; border-radius: 3px;
 }
-.panel-badge { background: var(--accent-green); color: #000; }
-.panel-badge.blue { background: var(--accent-blue); color: #000; }
+.panel-badge { background: var(--accent-green-dim); color: var(--accent-green); border: 1px solid #b9d7c6; }
+.panel-badge.blue { background: var(--accent-blue-dim); color: var(--accent-blue); border-color: #bfd6df; }
 
 .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .sensor-card {
-  background: var(--bg-card);
-  border-radius: 4px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   padding: 10px;
 }
-.sensor-name { font-size: 10px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+.sensor-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
 .sensor-value { margin-bottom: 6px; }
 .sensor-value .data-value { font-size: 22px; }
 .sensor-value .data-unit { font-size: 11px; margin-left: 2px; }
@@ -235,6 +295,66 @@ const alerts = ref([
 .device-name { color: var(--text-primary); flex: 1; }
 .device-info { color: var(--text-dim); font-family: var(--font-mono); font-size: 10px; }
 
+.pool-count {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.pool-empty {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  background: var(--bg-muted);
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+}
+
+.pool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pool-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.pool-item strong,
+.pool-item span,
+.pool-item em {
+  display: block;
+}
+
+.pool-item strong {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.pool-item span,
+.pool-item em {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.pool-item em {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
 /* 中央 3D 视图 */
 .center-view {
   flex: 1;
@@ -249,10 +369,11 @@ const alerts = ref([
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: var(--text-dim);
-  background: rgba(10, 10, 11, 0.8);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-color);
   padding: 6px 16px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 .pool-coords { color: var(--accent-blue); }
 
@@ -268,14 +389,14 @@ const alerts = ref([
   border-left: 1px solid var(--border-color);
 }
 
-/* AI 预测面板 */
+/* 趋势预估面板 */
 .prediction-summary { margin-bottom: 12px; }
 .prediction-header-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .risk-level-tag {
   font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 3px;
 }
 .risk-level-tag.yellow { background: var(--accent-orange-dim); color: var(--accent-orange); }
-.risk-level-tag.red { background: rgba(255,68,68,0.15); color: var(--accent-red); }
+.risk-level-tag.red { background: var(--accent-red-dim); color: var(--accent-red); }
 .prediction-time { font-size: 11px; color: var(--text-dim); }
 .prediction-conclusion { font-size: 14px; color: var(--text-primary); font-weight: 600; margin-bottom: 6px; }
 .prediction-suggestion { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }

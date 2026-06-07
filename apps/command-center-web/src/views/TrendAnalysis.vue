@@ -1,13 +1,13 @@
 <template>
   <div class="analysis-layout">
-    <!-- 主图表区 -->
+    <!-- 趋势图表区 -->
     <main class="analysis-main">
       <!-- 交互工具栏 -->
       <div class="toolbar">
         <div class="toolbar-group">
           <span class="toolbar-label">养殖池</span>
           <button
-            v-for="p in pools"
+            v-for="p in visiblePools"
             :key="p.id"
             class="tb-btn"
             :class="{ active: activePool === p.id, [p.riskLevel]: activePool === p.id }"
@@ -49,10 +49,10 @@
         </div>
 
         <div class="toolbar-spacer"></div>
+        <span class="scope-badge">{{ auth.user?.roleLabel }} · {{ auth.user?.scopeLabel }}</span>
 
         <button class="tb-btn predict-btn" @click="triggerPrediction" :disabled="predicting">
-          <span class="predict-icon">{{ predicting ? '⏳' : '⚡' }}</span>
-          {{ predicting ? '预测中...' : 'AI 即时预测' }}
+          {{ predicting ? '生成中...' : '生成趋势' }}
         </button>
       </div>
 
@@ -63,8 +63,8 @@
           </span>
           <div class="chart-legend">
             <span class="legend-item"><span class="legend-dot actual"></span> 实测</span>
-            <span class="legend-item"><span class="legend-dot predicted"></span> AI 预测</span>
-            <span class="legend-item"><span class="legend-dot ci"></span> 置信区间</span>
+            <span class="legend-item"><span class="legend-dot predicted"></span> 趋势预估</span>
+            <span class="legend-item"><span class="legend-dot ci"></span> 波动范围</span>
             <span class="legend-item"><span class="legend-dot history"></span> 历史同期</span>
           </div>
         </div>
@@ -95,7 +95,7 @@
       <!-- 根因分析 -->
       <div class="panel" :class="{ 'pulse-border-orange': rootCauseHighlight }">
         <div class="panel-header">
-          <span class="panel-title">根因分析钻取</span>
+          <span class="panel-title">风险原因</span>
           <button class="tb-btn sm" @click="refreshRootCauses">刷新</button>
         </div>
         <div class="root-cause">
@@ -166,6 +166,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { useSensorStore } from '../stores/sensorData'
+import { useAuthStore } from '../stores/auth'
 
 const mainChartRef = ref<HTMLDivElement>()
 const tempChartRef = ref<HTMLDivElement>()
@@ -173,16 +174,20 @@ const phChartRef = ref<HTMLDivElement>()
 const radarChartRef = ref<HTMLDivElement>()
 
 const store = useSensorStore()
+const auth = useAuthStore()
 
 let charts: echarts.ECharts[] = []
 let updateTimer: number | null = null
 
 // ---- 交互状态 ----
-const pools = [
-  { id: 'P01', name: '南美白对虾', riskLevel: 'normal' },
-  { id: 'P02', name: '南美白对虾', riskLevel: 'unstable' },
-] as const
-const activePool = ref<'P01' | 'P02'>('P01')
+type PoolId = 'P01' | 'P02'
+const pools: Array<{ id: PoolId; name: string; baseName: string; riskLevel: 'normal' | 'unstable' }> = [
+  { id: 'P01', name: '南美白对虾', baseName: 'A基地', riskLevel: 'normal' },
+  { id: 'P02', name: '南美白对虾', baseName: 'A基地', riskLevel: 'unstable' },
+]
+const visiblePools = computed(() => pools.filter(pool => auth.canSeeBase(pool.baseName)))
+const firstVisiblePool = computed<PoolId>(() => visiblePools.value[0]?.id || 'P01')
+const activePool = ref<PoolId>('P01')
 
 const metrics = [
   { key: 'DO', label: '溶氧 DO', unit: 'mg/L', min: 2, max: 9 },
@@ -249,13 +254,13 @@ interface TimelineEvent {
 }
 
 const events = reactive<TimelineEvent[]>([
-  { id: 'e1', time: '18:32', type: 'warning', poolId: 'P02', title: 'AI 预测 DO 下降', desc: 'LSTM 模型预测未来2h溶氧降至4.3mg/L', acknowledged: false, expanded: false, isNew: false, threshold: 'DO < 4.5 mg/L', currentValue: '4.3 mg/L', suggestion: '建议提前30min开启增氧设备，提升频率至75%' },
+  { id: 'e1', time: '18:32', type: 'warning', poolId: 'P02', title: 'DO 下降趋势', desc: '未来2h溶氧可能降至4.3mg/L', acknowledged: false, expanded: false, isNew: false, threshold: 'DO < 4.5 mg/L', currentValue: '4.3 mg/L', suggestion: '建议提前30min开启增氧设备，提升频率至75%' },
   { id: 'e2', time: '17:45', type: 'warning', poolId: 'P02', title: 'pH 变化率异常', desc: '小时变化率 0.15，超过正常范围', acknowledged: false, expanded: false, isNew: false, threshold: 'ΔpH/h < 0.1', currentValue: '0.15', suggestion: '检查底层残饵堆积，考虑换水10%' },
   { id: 'e3', time: '16:10', type: 'info', poolId: 'P01', title: '增氧机维护完成', desc: '#02 增氧机例行维护，电流恢复正常', acknowledged: false, expanded: false, isNew: false },
   { id: 'e4', time: '14:20', type: 'danger', poolId: 'P01', title: '水温超阈值', desc: '水温达 28.2°C，超过 28°C 黄色预警线', acknowledged: false, expanded: false, isNew: false, threshold: 'TEMP < 28°C', currentValue: '28.2°C', suggestion: '开启循环水泵，增加水体交换' },
-  { id: 'e5', time: '12:05', type: 'action', poolId: 'P01', title: '预防性增氧启动', desc: 'AI 触发预干预：增氧机频率自动提升 15%', acknowledged: false, expanded: false, isNew: false },
+  { id: 'e5', time: '12:05', type: 'action', poolId: 'P01', title: '预防性增氧启动', desc: '规则联动：增氧机频率自动提升 15%', acknowledged: false, expanded: false, isNew: false },
   { id: 'e6', time: '10:30', type: 'info', poolId: 'P02', title: '气象数据更新', desc: '获取到高德气象API数据：夜间气压将下降', acknowledged: false, expanded: false, isNew: false },
-  { id: 'e7', time: '08:15', type: 'action', poolId: 'P02', title: '投喂窗口建议', desc: 'AI 建议 08:30-09:00 投喂，代谢强度 0.72', acknowledged: false, expanded: false, isNew: false },
+  { id: 'e7', time: '08:15', type: 'action', poolId: 'P02', title: '投喂窗口建议', desc: '建议 08:30-09:00 投喂，代谢强度 0.72', acknowledged: false, expanded: false, isNew: false },
 ])
 
 const filteredEvents = computed(() =>
@@ -314,11 +319,11 @@ const radarData: Record<string, number[]> = {
   P02: [45, 38, 33, 25, 58],
 }
 const radarIndicators = [
-  { name: '气压突变', max: 100, icon: '🌡' },
-  { name: '氨氮累积', max: 100, icon: '🧪' },
-  { name: '水温变化', max: 100, icon: '🌊' },
-  { name: 'pH 异常', max: 100, icon: '⚖' },
-  { name: '溶氧下降', max: 100, icon: '🫧' },
+  { name: '气压突变', max: 100 },
+  { name: '氨氮累积', max: 100 },
+  { name: '水温变化', max: 100 },
+  { name: 'pH 异常', max: 100 },
+  { name: '溶氧下降', max: 100 },
 ]
 
 let radarChart: echarts.ECharts | null = null
@@ -343,23 +348,23 @@ function rebuildMainChart() {
 
 function getThresholdLine(): { yAxis: number; label: string; color: string } | null {
   switch (activeMetric.value) {
-    case 'DO': return { yAxis: 4.5, label: 'DO 预警线 4.5', color: '#FF1744' }
-    case 'TEMP': return { yAxis: 28, label: 'TEMP 预警线 28°C', color: '#FFC107' }
-    case 'pH': return { yAxis: 8.0, label: 'pH 预警线 8.0', color: '#FF1744' }
+    case 'DO': return { yAxis: 4.5, label: 'DO 预警线 4.5', color: '#bf3d35' }
+    case 'TEMP': return { yAxis: 28, label: 'TEMP 预警线 28°C', color: '#b7791f' }
+    case 'pH': return { yAxis: 8.0, label: 'pH 预警线 8.0', color: '#bf3d35' }
     default: return null
   }
 }
 
 function initMainChart(): echarts.ECharts {
-  const chart = echarts.init(mainChartRef.value!, 'dark')
+  const chart = echarts.init(mainChartRef.value!)
   const m = metricRange.value
   const threshold = getThresholdLine()
 
   const series: any[] = [
     {
       name: '实测 ' + m.label, type: 'line', data: dataBuffers[activePool.value][activeMetric.value],
-      lineStyle: { color: '#00d4ff', width: 2 },
-      itemStyle: { color: '#00d4ff' },
+      lineStyle: { color: '#256f8f', width: 2 },
+      itemStyle: { color: '#256f8f' },
       symbol: 'none', smooth: true,
     },
     {
@@ -374,22 +379,19 @@ function initMainChart(): echarts.ECharts {
       lineStyle: { color: 'transparent', width: 0 },
       symbol: 'none',
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(255, 193, 7, 0.18)' },
-          { offset: 1, color: 'rgba(255, 193, 7, 0.02)' },
-        ]),
+        color: 'rgba(183, 121, 31, 0.14)',
       },
     },
     {
-      name: 'AI 预测', type: 'line', data: doPredicted,
-      lineStyle: { color: '#ff6b35', width: 2, type: 'dotted' },
-      itemStyle: { color: '#ff6b35' },
+      name: '趋势预估', type: 'line', data: doPredicted,
+      lineStyle: { color: '#b86525', width: 2, type: 'dotted' },
+      itemStyle: { color: '#b86525' },
       symbol: 'none', smooth: true,
     },
     {
       name: '历史同期', type: 'line', data: historySamePeriod,
-      lineStyle: { color: '#555a6e', width: 1.5, type: 'dashed' },
-      itemStyle: { color: '#555a6e' },
+      lineStyle: { color: '#9aa6b2', width: 1.5, type: 'dashed' },
+      itemStyle: { color: '#9aa6b2' },
       symbol: 'none', smooth: true,
     },
   ]
@@ -409,39 +411,36 @@ function initMainChart(): echarts.ECharts {
     grid: { left: 50, right: 40, top: 20, bottom: 30 },
     xAxis: {
       type: 'category', data: timeLabels,
-      axisLine: { lineStyle: { color: '#2A3040' } },
-      axisLabel: { color: '#555a6e', fontSize: 10, interval: Math.floor(maxPoints.value / 6) || 1 },
+      axisLine: { lineStyle: { color: '#c9d3dd' } },
+      axisLabel: { color: '#7b8794', fontSize: 10, interval: Math.floor(maxPoints.value / 6) || 1 },
     },
     yAxis: {
       type: 'value', name: m.unit, min: m.min, max: m.max,
-      axisLine: { lineStyle: { color: '#2A3040' } },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-      axisLabel: { color: '#555a6e', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#c9d3dd' } },
+      splitLine: { lineStyle: { color: '#e5eaf0' } },
+      axisLabel: { color: '#7b8794', fontSize: 10 },
     },
     series,
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross', crossStyle: { color: '#555a6e' } },
+      axisPointer: { type: 'cross', crossStyle: { color: '#7b8794' } },
     },
   })
   return chart
 }
 
 function initSmallChart(refEl: HTMLDivElement, name: string, color: string, dataArr: number[], threshold?: { yAxis: number; color: string; label: string }): echarts.ECharts {
-  const chart = echarts.init(refEl, 'dark')
-  // Map hex color to rgba for gradient fill
-  const gradientTopColor = color === '#ff6b35' || color === '#FF8C00' ? 'rgba(255,140,0,0.15)'
-    : color === '#00e676' || color === '#00E676' ? 'rgba(0,230,118,0.15)'
-    : 'rgba(0,212,255,0.15)'
+  const chart = echarts.init(refEl)
+  // Map line color to a restrained solid fill.
+  const fillColor = color === '#b86525' ? 'rgba(184,101,37,0.12)'
+    : color === '#2f7d57' ? 'rgba(47,125,87,0.12)'
+    : 'rgba(37,111,143,0.12)'
   const series: any[] = [{
     type: 'line', data: dataArr,
     lineStyle: { color, width: 1.5 },
     symbol: 'none', smooth: true,
     areaStyle: {
-      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: gradientTopColor },
-        { offset: 1, color: 'rgba(255,255,255,0)' },
-      ]),
+      color: fillColor,
     },
   }]
   if (threshold) {
@@ -460,14 +459,14 @@ function initSmallChart(refEl: HTMLDivElement, name: string, color: string, data
     series,
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross', crossStyle: { color: '#555a6e' } },
+      axisPointer: { type: 'cross', crossStyle: { color: '#7b8794' } },
     },
   })
   return chart
 }
 
 // ---- 池切换 ----
-function switchPool(poolId: 'P01' | 'P02') {
+function switchPool(poolId: PoolId) {
   activePool.value = poolId
   rebuildMainChart()
   updateRadarChart()
@@ -524,14 +523,14 @@ async function triggerPrediction() {
     time: timeStr,
     type: 'warning',
     poolId: activePool.value,
-    title: `AI 即时预测: ${metricLabel.value}`,
+    title: `趋势预估：${metricLabel.value}`,
     desc: predictionDesc,
     acknowledged: false,
     expanded: false,
     isNew: true,
     threshold: activeMetric.value === 'DO' ? 'DO < 4.5 mg/L' : activeMetric.value === 'TEMP' ? 'TEMP < 28°C' : '—',
     currentValue: `${(lastVal - 0.8).toFixed(1)} ${metricUnit.value}`,
-    suggestion: 'AI 建议：提前启动增氧设备，提升频率至 75%',
+    suggestion: '建议：提前启动增氧设备，提升频率至 75%',
   })
 
   // 移除 isNew 标记
@@ -548,6 +547,10 @@ async function triggerPrediction() {
 
 // ---- 生命周期 ----
 onMounted(() => {
+  if (!visiblePools.value.some(pool => pool.id === activePool.value)) {
+    activePool.value = firstVisiblePool.value
+  }
+
   const mp = maxPoints.value
 
   // 预填充数据
@@ -577,12 +580,12 @@ onMounted(() => {
     // 十字准星联动
     mainChart.on('mousemove', syncCrosshair)
   }
-  if (tempChartRef.value) charts.push(initSmallChart(tempChartRef.value, '°C', '#ff6b35', dataBuffers['P01'].TEMP, { yAxis: 28, color: '#FFC107', label: '28°C' }))
-  if (phChartRef.value) charts.push(initSmallChart(phChartRef.value, 'pH', '#00e676', dataBuffers['P01'].pH, { yAxis: 8.0, color: '#FF1744', label: 'pH 8.0' }))
+  if (tempChartRef.value) charts.push(initSmallChart(tempChartRef.value, '°C', '#b86525', dataBuffers['P01'].TEMP, { yAxis: 28, color: '#b7791f', label: '28°C' }))
+  if (phChartRef.value) charts.push(initSmallChart(phChartRef.value, 'pH', '#2f7d57', dataBuffers['P01'].pH, { yAxis: 8.0, color: '#bf3d35', label: 'pH 8.0' }))
 
   // 雷达图 - 渐变填充
   if (radarChartRef.value) {
-    radarChart = echarts.init(radarChartRef.value, 'dark')
+    radarChart = echarts.init(radarChartRef.value)
     radarChart.setOption({
       backgroundColor: 'transparent',
       tooltip: {
@@ -590,30 +593,24 @@ onMounted(() => {
         formatter: (p: any) => {
           if (!p.value) return ''
           const vals = p.value as number[]
-          return radarIndicators.map((ind, i) =>
-            `${ind.icon} ${ind.name}: <b>${vals[i]}%</b>`
-          ).join('<br/>')
+          return radarIndicators.map((ind, i) => `${ind.name}: <b>${vals[i]}%</b>`).join('<br/>')
         },
       },
       radar: {
         center: ['50%', '50%'], radius: '70%',
         indicator: radarIndicators.map(i => ({ name: i.name, max: i.max })),
-        axisName: { color: '#8b92a8', fontSize: 9 },
+        axisName: { color: '#7b8794', fontSize: 9 },
         splitArea: {
-          areaStyle: { color: ['rgba(0,212,255,0.02)', 'rgba(0,212,255,0.04)'] },
+          areaStyle: { color: ['#ffffff', '#f8fafc'] },
         },
       },
       series: [{
         type: 'radar', data: [{ value: radarData['P01'], name: 'P01 风险' }],
         areaStyle: {
-          color: new echarts.graphic.RadialGradient(0.5, 0.5, 0.7, [
-            { offset: 0, color: 'rgba(255, 107, 53, 0.35)' },
-            { offset: 0.5, color: 'rgba(255, 107, 53, 0.12)' },
-            { offset: 1, color: 'rgba(255, 107, 53, 0)' },
-          ]),
+          color: 'rgba(184, 101, 37, 0.16)',
         },
-        lineStyle: { color: '#ff6b35', width: 2 },
-        itemStyle: { color: '#ff6b35' },
+        lineStyle: { color: '#b86525', width: 2 },
+        itemStyle: { color: '#b86525' },
         symbol: 'circle', symbolSize: 5,
       }],
     })
@@ -651,7 +648,7 @@ onMounted(() => {
       rollingPush(dataBuffers[poolId].NH3N, Math.round(nhVal * 100) / 100, mp)
     }
 
-    // AI 预测 + 置信区间
+    // 趋势预估 + 波动范围
     const currentData = dataBuffers[activePool.value][activeMetric.value]
     const lastVal = currentData[currentData.length - 1]
     const forecast = lastVal + (Math.sin(tick / 45) - 0.3) * (activeMetric.value === 'DO' ? 0.3 : activeMetric.value === 'TEMP' ? 0.5 : 0.05)
@@ -726,7 +723,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   flex-shrink: 0;
@@ -751,6 +748,15 @@ onUnmounted(() => {
 .toolbar-spacer {
   flex: 1;
 }
+.scope-badge {
+  padding: 3px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
 .tb-btn {
   display: flex;
   align-items: center;
@@ -770,18 +776,17 @@ onUnmounted(() => {
 .tb-btn.active {
   border-color: var(--accent-blue);
   color: var(--accent-blue);
-  background: rgba(0, 212, 255, 0.08);
+  background: var(--accent-blue-dim);
 }
-.tb-btn.normal.active { border-color: var(--accent-green); color: var(--accent-green); background: rgba(0, 230, 118, 0.08); }
-.tb-btn.unstable.active { border-color: var(--accent-orange); color: var(--accent-orange); background: rgba(255, 107, 53, 0.08); }
+.tb-btn.normal.active { border-color: #b9d7c6; color: var(--accent-green); background: var(--accent-green-dim); }
+.tb-btn.unstable.active { border-color: #e7c5a6; color: var(--accent-orange); background: var(--accent-orange-dim); }
 .tb-btn.sm { padding: 2px 8px; font-size: 10px; }
 .predict-btn {
   border-color: var(--accent-orange);
   color: var(--accent-orange);
 }
-.predict-btn:hover { background: rgba(255, 107, 53, 0.1); }
+.predict-btn:hover { background: var(--accent-orange-dim); }
 .predict-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.predict-icon { font-size: 13px; }
 .tb-dot {
   width: 6px; height: 6px; border-radius: 50%;
   flex-shrink: 0;
@@ -812,12 +817,11 @@ onUnmounted(() => {
   width: 26px; height: 26px; border-radius: 50%; display: flex;
   align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;
   background: var(--accent-red); color: #fff;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition: transform 0.3s;
 }
 .cause-icon.sec { background: var(--accent-orange-dim); color: var(--accent-orange); }
 .cause-icon.pulse {
   animation: heartbeat 0.5s ease-in-out 3;
-  box-shadow: 0 0 12px rgba(255, 23, 68, 0.6);
 }
 .cause-item.primary .cause-title { color: var(--accent-red); }
 .cause-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
@@ -831,21 +835,21 @@ onUnmounted(() => {
   cursor: pointer; transition: background 0.15s;
   border-radius: 4px;
 }
-.event-item:hover { background: rgba(255, 255, 255, 0.03); }
+.event-item:hover { background: var(--bg-muted); }
 .event-item.acknowledged { opacity: 0.45; }
 .event-item.shake { animation: shake 0.5s ease-in-out; }
-.event-item.expanded { background: rgba(0, 212, 255, 0.04); }
+.event-item.expanded { background: var(--accent-blue-dim); }
 .event-time { font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); min-width: 34px; flex-shrink: 0; }
 .event-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-.event-dot.warning { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); }
-.event-dot.danger { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
-.event-dot.info { background: var(--accent-blue); box-shadow: 0 0 6px var(--accent-blue); }
-.event-dot.action { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.event-dot.warning { background: var(--accent-orange); }
+.event-dot.danger { background: var(--accent-red); }
+.event-dot.info { background: var(--accent-blue); }
+.event-dot.action { background: var(--accent-green); }
 .event-content { flex: 1; min-width: 0; }
 .event-title { font-size: 11px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
 .event-desc { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
 .event-detail {
-  margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.2);
+  margin-top: 8px; padding: 8px; background: #ffffff;
   border-radius: 6px; border: 1px solid var(--border-color);
   animation: fade-in 0.2s ease;
 }
@@ -854,6 +858,6 @@ onUnmounted(() => {
 .event-suggestion { font-size: 10px; color: var(--accent-orange); }
 .ack-badge {
   font-size: 9px; padding: 0 4px; border-radius: 3px;
-  background: rgba(0, 230, 118, 0.15); color: var(--accent-green);
+  background: var(--accent-green-dim); color: var(--accent-green);
 }
 </style>

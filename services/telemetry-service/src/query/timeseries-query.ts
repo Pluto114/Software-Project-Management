@@ -20,7 +20,16 @@ export class TimeseriesQuery {
   private influx: InfluxDB
 
   constructor() {
-    this.redis = new Redis(REDIS_URL)
+    this.redis = new Redis(REDIS_URL, {
+      connectTimeout: 500,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+      retryStrategy(times) {
+        if (times > 2) return null
+        return Math.min(times * 100, 500)
+      },
+      lazyConnect: true,
+    })
     this.influx = new InfluxDB({ url: INFLUX_URL, token: INFLUX_TOKEN })
   }
 
@@ -31,11 +40,19 @@ export class TimeseriesQuery {
     const sensors = ['DO', 'pH', 'TEMP', 'NH3N', 'COND', 'ORP']
     const results: Record<string, any> = { pool_id: poolId, ts: Date.now() }
 
-    for (const st of sensors) {
-      const raw = await this.redis.get(`realtime:${poolId}:${st}`)
-      if (raw) {
-        results[st] = JSON.parse(raw)
+    try {
+      for (const st of sensors) {
+        const raw = await this.redis.get(`realtime:${poolId}:${st}`)
+        if (raw) {
+          results[st] = JSON.parse(raw)
+        }
       }
+      if (Object.keys(results).length <= 2) {
+        Object.assign(results, this.buildFallbackRealtime(poolId))
+      }
+    } catch (err: any) {
+      console.warn(`[query] Redis realtime unavailable, using fallback: ${err.message}`)
+      Object.assign(results, this.buildFallbackRealtime(poolId))
     }
 
     res.json(results)
@@ -113,4 +130,24 @@ export class TimeseriesQuery {
   async close(): Promise<void> {
     this.redis.disconnect()
   }
+
+  private buildFallbackRealtime(poolId: string): Record<string, any> {
+    const now = Date.now()
+    const phase = (now / 60_000) % (Math.PI * 2)
+    const poolBias = poolId === 'P02' ? -0.35 : 0
+
+    return {
+      data_source: 'simulated-fallback',
+      DO: { value: round(5.7 + poolBias + Math.sin(phase) * 0.35), unit: 'mg/L', ts: now },
+      pH: { value: round(7.55 + Math.sin(phase / 2) * 0.08), unit: 'pH', ts: now },
+      TEMP: { value: round(27.2 + Math.cos(phase / 3) * 0.6), unit: '°C', ts: now },
+      NH3N: { value: round(0.16 + (poolId === 'P02' ? 0.04 : 0) + Math.sin(phase / 4) * 0.015), unit: 'mg/L', ts: now },
+      COND: { value: round(2.4 + Math.sin(phase / 5) * 0.08), unit: 'mS/cm', ts: now },
+      ORP: { value: Math.round(320 + Math.cos(phase / 2) * 12), unit: 'mV', ts: now },
+    }
+  }
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100
 }

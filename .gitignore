@@ -8,6 +8,7 @@ venv/
 # Build output
 dist/
 build/
+out/
 *.tsbuildinfo
 
 # IDE
@@ -28,6 +29,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+.local/
 
 # Misc
 .turbo

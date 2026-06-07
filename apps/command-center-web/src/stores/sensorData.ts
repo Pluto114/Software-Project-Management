@@ -30,7 +30,7 @@ export interface DeviceStatus {
   current?: number // 当前电流 A
 }
 
-export interface AIPrediction {
+export interface TrendPrediction {
   poolId: string
   timestamp: number
   horizon: number // 预测时长 min
@@ -45,8 +45,8 @@ export const useSensorStore = defineStore('sensor', () => {
   const latestReadings = ref<Map<string, SensorReading>>(new Map())
   const historyBuffer = ref<SensorReading[]>([]) // 最近 30min 数据
 
-  // AI 预测
-  const currentPrediction = ref<AIPrediction | null>(null)
+  // 趋势预估
+  const currentPrediction = ref<TrendPrediction | null>(null)
 
   // 告警
   const alertLevel = ref<'green' | 'yellow' | 'red'>('green')
@@ -67,7 +67,7 @@ export const useSensorStore = defineStore('sensor', () => {
   const e2eLatency = ref(68)
   const uptime = ref('12d 4h 32m')
 
-  // 风险因子（来自 AI 分析）
+  // 风险因子（来自趋势分析）
   const riskFactors = ref([
     { name: '气压突变', weight: 38, description: '外部天气变化可能影响夜间溶氧稳定性' },
     { name: '氨氮累积', weight: 33, description: '底层残饵和代谢物增加，逼近安全边界' },

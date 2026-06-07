@@ -15,24 +15,43 @@ async function main() {
   app.use(cors())
   app.use(express.json())
 
+  const evaluator = new RuleEvaluator()
+
   app.get('/health', (_req, res) => {
     res.json({ service: 'rule-engine-service', status: 'ok' })
   })
 
   // API: 手动触发规则评估
-  app.post('/api/v1/rules/evaluate', (req, res) => {
+  app.post('/api/v1/rules/evaluate', async (req, res) => {
     const { pool_id, sensor_type, value } = req.body
-    // 评估逻辑由 RuleEvaluator 处理，这里只返回确认
+    const results = await evaluator.evaluatePayload({ pool_id, sensor_type, value })
     res.json({
       accepted: true,
       pool_id,
       sensor_type,
       value,
-      message: 'Data will be evaluated against active rules',
+      triggered: results.length,
+      results,
     })
   })
 
-  const evaluator = new RuleEvaluator()
+  app.get('/api/v1/alerts', (req, res) => {
+    const poolId = req.query.pool_id as string | undefined
+    const level = req.query.level as string | undefined
+    const limit = parseInt(req.query.limit as string || '50', 10)
+    const alerts = evaluator.getAlerts({ poolId, level, limit })
+    res.json({ total: alerts.length, alerts })
+  })
+
+  app.post('/api/v1/alerts/:id/confirm', (req, res) => {
+    const alert = evaluator.confirmAlert(req.params.id)
+    if (!alert) {
+      res.status(404).json({ error: 'alert not found' })
+      return
+    }
+    res.json({ confirmed: true, alert })
+  })
+
   await evaluator.start()
 
   const server = app.listen(PORT, () => {

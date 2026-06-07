@@ -1,28 +1,28 @@
 /* ============================================================
-   AquaIntelligence - "深邃工业 Deep-Sea Industrial" 设计语言
-   背景: #0a0e17  数据流: #00d4ff  警示: #ff6b35  危险: #ff1744
+   AquaIntelligence - light enterprise management theme
    ============================================================ */
 
 :root {
-  --bg-primary: #0a0e17;
-  --bg-secondary: #0d1117;
-  --bg-panel: rgba(255, 255, 255, 0.03);
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(255, 255, 255, 0.15);
-  --text-primary: #ffffff;
-  --text-secondary: #8b92a8;
-  --text-dim: #555a6e;
-  --accent-blue: #00d4ff;
-  --accent-blue-dim: rgba(0, 212, 255, 0.12);
-  --accent-orange: #ff6b35;
-  --accent-orange-dim: rgba(255, 107, 53, 0.15);
-  --accent-red: #ff1744;
-  --accent-red-dim: rgba(255, 23, 68, 0.15);
-  --accent-green: #00e676;
-  --accent-green-dim: rgba(0, 230, 118, 0.12);
-  --accent-yellow: #ffc107;
-  --accent-yellow-dim: rgba(255, 193, 7, 0.12);
+  --bg-primary: #f4f6f8;
+  --bg-secondary: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-card: #ffffff;
+  --bg-muted: #f8fafc;
+  --border-color: #d9e0e7;
+  --border-active: #b8c6d4;
+  --text-primary: #1f2933;
+  --text-secondary: #526170;
+  --text-dim: #7b8794;
+  --accent-blue: #256f8f;
+  --accent-blue-dim: #e8f3f7;
+  --accent-orange: #b86525;
+  --accent-orange-dim: #fff4e8;
+  --accent-red: #bf3d35;
+  --accent-red-dim: #fdeceb;
+  --accent-green: #2f7d57;
+  --accent-green-dim: #e8f5ee;
+  --accent-yellow: #b7791f;
+  --accent-yellow-dim: #fff7df;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -33,7 +33,9 @@
   box-sizing: border-box;
 }
 
-html, body, #app {
+html,
+body,
+#app {
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -45,61 +47,87 @@ html, body, #app {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 滚动条 */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+button,
+input,
+select {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c8d2dc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aebdca;
+}
 
 /* ============================================================
-   面板通用样式
+   Common panels
    ============================================================ */
 .panel {
-  background: var(--bg-card);
+  background: var(--bg-panel);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 16px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  border-radius: 8px;
+  padding: 14px;
+  transition: border-color 0.2s, background-color 0.2s;
 }
+
 .panel:hover {
-  border-color: rgba(0, 212, 255, 0.15);
+  border-color: var(--border-active);
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
 .panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-primary);
+  letter-spacing: 0;
 }
 
 /* ============================================================
-   数据展示
+   Data display
    ============================================================ */
 .data-value {
   font-family: var(--font-mono);
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--accent-blue);
   line-height: 1;
-  transition: color 1s ease;
+  transition: color 0.2s ease;
 }
-.data-value.green { color: var(--accent-green); }
-.data-value.orange { color: var(--accent-orange); }
-.data-value.red { color: var(--accent-red); }
+
+.data-value.green {
+  color: var(--accent-green);
+}
+
+.data-value.orange {
+  color: var(--accent-orange);
+}
+
+.data-value.red {
+  color: var(--accent-red);
+}
 
 .data-label {
   font-size: 12px;
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .data-unit {
@@ -108,17 +136,24 @@ html, body, #app {
   font-weight: 400;
 }
 
-/* 数值变化计数动画 */
 @keyframes count-up {
-  from { opacity: 0.6; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0.7;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
 .data-updated {
-  animation: count-up 1s ease;
+  animation: count-up 0.4s ease;
 }
 
 /* ============================================================
-   状态指示灯
+   Status
    ============================================================ */
 .status-dot {
   display: inline-block;
@@ -126,159 +161,225 @@ html, body, #app {
   height: 8px;
   border-radius: 50%;
   margin-right: 6px;
+  vertical-align: middle;
 }
-.status-dot.green  { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
-.status-dot.yellow { background: var(--accent-yellow); box-shadow: 0 0 6px var(--accent-yellow); }
-.status-dot.red    { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
-.status-dot.blue   { background: var(--accent-blue); box-shadow: 0 0 6px var(--accent-blue); }
-.status-dot.orange { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); }
+
+.status-dot.green,
+.status-dot.normal {
+  background: var(--accent-green);
+}
+
+.status-dot.yellow,
+.status-dot.unstable,
+.status-dot.orange {
+  background: var(--accent-orange);
+}
+
+.status-dot.red {
+  background: var(--accent-red);
+}
+
+.status-dot.blue {
+  background: var(--accent-blue);
+}
 
 /* ============================================================
-   按钮
+   Buttons
    ============================================================ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 20px;
-  border-radius: 8px;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  border: none;
-  transition: all 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-secondary);
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
 }
+
+.btn:hover {
+  border-color: var(--border-active);
+  color: var(--text-primary);
+}
+
 .btn-primary {
   background: var(--accent-blue);
-  color: var(--bg-primary);
+  border-color: var(--accent-blue);
+  color: #ffffff;
 }
-.btn-primary:hover { box-shadow: 0 0 16px rgba(0, 212, 255, 0.4); }
+
 .btn-danger {
-  background: transparent;
-  border: 1px solid var(--accent-red);
   color: var(--accent-red);
+  border-color: #e3b7b4;
+  background: #ffffff;
 }
-.btn-danger:hover { background: rgba(255, 23, 68, 0.15); box-shadow: 0 0 16px rgba(255, 23, 68, 0.3); }
+
+.btn-danger:hover {
+  background: var(--accent-red-dim);
+}
+
 .btn-warning {
-  background: transparent;
-  border: 1px solid var(--accent-orange);
   color: var(--accent-orange);
+  border-color: #e7c5a6;
+  background: #ffffff;
 }
-.btn-warning:hover { background: rgba(255, 107, 53, 0.15); box-shadow: 0 0 16px rgba(255, 107, 53, 0.3); }
+
+.btn-warning:hover {
+  background: var(--accent-orange-dim);
+}
 
 /* ============================================================
-   动画定义
+   Animations
    ============================================================ */
-
-/* 告警呼吸灯 */
 @keyframes breathe-red {
-  0%, 100% { box-shadow: 0 0 4px rgba(255, 23, 68, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(255, 23, 68, 0.7), 0 0 40px rgba(255, 23, 68, 0.3); }
+  0%,
+  100% {
+    border-color: #e3b7b4;
+  }
+
+  50% {
+    border-color: var(--accent-red);
+  }
 }
+
 @keyframes breathe-orange {
-  0%, 100% { box-shadow: 0 0 4px rgba(255, 107, 53, 0.3); }
-  50% { box-shadow: 0 0 16px rgba(255, 107, 53, 0.5), 0 0 32px rgba(255, 107, 53, 0.2); }
+  0%,
+  100% {
+    border-color: #e7c5a6;
+  }
+
+  50% {
+    border-color: var(--accent-orange);
+  }
 }
+
 @keyframes breathe-green {
-  0%, 100% { box-shadow: 0 0 4px rgba(0, 230, 118, 0.3); }
-  50% { box-shadow: 0 0 16px rgba(0, 230, 118, 0.5); }
+  0%,
+  100% {
+    border-color: #b9d7c6;
+  }
+
+  50% {
+    border-color: var(--accent-green);
+  }
 }
 
-/* 告警闪烁 (opacity 0.3-1.0) */
 @keyframes alert-blink {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1.0; }
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
-/* 告警脉冲边框 */
 @keyframes pulse-border-orange {
-  0%, 100% { border-color: rgba(255, 107, 53, 0.3); box-shadow: 0 0 4px rgba(255, 107, 53, 0.1); }
-  50% { border-color: rgba(255, 107, 53, 1); box-shadow: 0 0 20px rgba(255, 107, 53, 0.4); }
+  0%,
+  100% {
+    border-color: #e7c5a6;
+  }
+
+  50% {
+    border-color: var(--accent-orange);
+  }
 }
 
-/* CSS 震动 */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 50%, 90% { transform: translateX(-2px); }
-  30%, 70% { transform: translateX(2px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-1px);
+  }
+
+  75% {
+    transform: translateX(1px);
+  }
 }
 
-/* 页面淡入 */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* 骨架屏 shimmer */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-/* 心跳 */
 @keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  14% { transform: scale(1.15); }
-  28% { transform: scale(1); }
-  42% { transform: scale(1.1); }
-  70% { transform: scale(1); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
 }
 
 .alert-breathing-red {
   animation: breathe-red 2s ease-in-out infinite;
 }
+
 .alert-breathing-orange {
   animation: breathe-orange 2s ease-in-out infinite;
 }
+
 .alert-blink {
-  animation: alert-blink 1.5s ease-in-out infinite;
-}
-.pulse-border-orange {
-  animation: pulse-border-orange 1.5s ease-in-out infinite;
-}
-.shake {
-  animation: shake 0.5s ease-in-out;
+  animation: alert-blink 1.6s ease-in-out infinite;
 }
 
-/* 滚动文字 */
-@keyframes scroll-text {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+.pulse-border-orange {
+  animation: pulse-border-orange 1.6s ease-in-out infinite;
 }
+
+.shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes scroll-text {
+  0% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
 .alert-scroll {
   animation: scroll-text 15s linear infinite;
   white-space: nowrap;
 }
 
-/* ============================================================
-   页面过渡
-   ============================================================ */
 .fade-enter-active {
-  animation: fade-in 0.3s ease;
+  animation: fade-in 0.25s ease;
 }
 
-/* ============================================================
-   骨架屏
-   ============================================================ */
 .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(0,212,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  background: #eef3f7;
   border-radius: 6px;
 }
 
-/* ============================================================
-   Tooltip 悬浮窗
-   ============================================================ */
 .tooltip-card {
-  background: rgba(10, 14, 23, 0.92);
-  border: 1px solid var(--accent-blue);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 14px;
   color: var(--text-primary);
   font-size: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
   pointer-events: none;
 }

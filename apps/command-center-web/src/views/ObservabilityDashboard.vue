@@ -119,7 +119,7 @@ const latencyTimes: string[] = []
 const resources = ref([
   { name: 'API Server #01', pct: 42, detail: 'CPU 42% · 内存 3.2/8 GB' },
   { name: 'API Server #02', pct: 38, detail: 'CPU 38% · 内存 2.8/8 GB' },
-  { name: 'AI 推理节点', pct: 68, detail: 'GPU 68% · 显存 6.8/12 GB' },
+  { name: '预测服务节点', pct: 68, detail: 'GPU 68% · 显存 6.8/12 GB' },
   { name: '时序数据库', pct: 55, detail: 'CPU 55% · 磁盘 320/500 GB' },
   { name: 'WebSocket 网关', pct: 23, detail: 'CPU 23% · 连接 3,286' },
   { name: '备份节点', pct: 12, detail: 'CPU 12% · 磁盘 180/500 GB' },
@@ -136,7 +136,7 @@ interface LogEntry {
 const logEntries = ref<LogEntry[]>([
   { time: '14:08:22', level: 'warn', levelTag: 'WARN', msg: '路径切换：网关心跳中断，备用网关 #03 已接管' },
   { time: '14:08:19', level: 'info', levelTag: 'INFO', msg: 'WebSocket 连接池：3,286 活跃连接' },
-  { time: '14:08:15', level: 'info', levelTag: 'INFO', msg: 'AI 推理完成：溶氧预测 5.2mg/L，置信度 92%' },
+  { time: '14:08:15', level: 'info', levelTag: 'INFO', msg: '预测服务完成：溶氧预估 5.2mg/L，置信度 92%' },
   { time: '14:08:10', level: 'warn', levelTag: 'WARN', msg: 'API Server #02 内存使用率超过 70%' },
   { time: '14:08:05', level: 'info', levelTag: 'INFO', msg: '数据同步完成：时序库写入 1,240 条记录' },
   { time: '14:08:01', level: 'error', levelTag: 'ERROR', msg: '边缘节点 E03 数据上报超时（>200ms），进入本地缓存模式' },
@@ -159,7 +159,7 @@ function addLogEntry() {
   const warnMsgs = [
     '网关 #04 响应延迟 45ms，超慢速阈值',
     '内存使用率接近高水位线（78%）',
-    'AI 推理队列积压：等待中 3 条',
+    '预测任务队列积压：等待中 3 条',
   ]
   const rand = Math.random()
   let level: 'info' | 'warn' | 'error', levelTag: string, msg: string
@@ -186,7 +186,7 @@ function addLogEntry() {
 // ---- 图表初始化 ----
 function initLatencyChart() {
   if (!latencyChartRef.value) return
-  const chart = echarts.init(latencyChartRef.value, 'dark')
+  const chart = echarts.init(latencyChartRef.value)
 
   // 预填充数据
   for (let i = 80; i >= 0; i--) {
@@ -199,29 +199,26 @@ function initLatencyChart() {
     grid: { left: 45, right: 30, top: 15, bottom: 25 },
     xAxis: {
       type: 'category', data: latencyTimes,
-      axisLabel: { color: '#555a6e', fontSize: 9, interval: 15 },
-      axisLine: { lineStyle: { color: '#2A3040' } },
+      axisLabel: { color: '#7b8794', fontSize: 9, interval: 15 },
+      axisLine: { lineStyle: { color: '#c9d3dd' } },
     },
     yAxis: {
       type: 'value', name: 'ms',
-      axisLabel: { color: '#555a6e', fontSize: 9 },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      axisLabel: { color: '#7b8794', fontSize: 9 },
+      splitLine: { lineStyle: { color: '#e5eaf0' } },
     },
     series: [{
       type: 'line', data: latencyData,
-      lineStyle: { color: '#ff6b35', width: 2 },
-      itemStyle: { color: '#ff6b35' },
+      lineStyle: { color: '#b86525', width: 2 },
+      itemStyle: { color: '#b86525' },
       symbol: 'none', smooth: true,
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(255,107,53,0.2)' },
-          { offset: 1, color: 'rgba(255,107,53,0.02)' },
-        ]),
+        color: 'rgba(184, 101, 37, 0.12)',
       },
       markLine: {
         silent: true, symbol: 'none',
-        lineStyle: { color: '#ff1744', type: 'dashed', width: 1.5 },
-        label: { color: '#ff1744', fontSize: 10, formatter: 'P99 阈值 200ms' },
+        lineStyle: { color: '#bf3d35', type: 'dashed', width: 1.5 },
+        label: { color: '#bf3d35', fontSize: 10, formatter: 'P99 阈值 200ms' },
         data: [{ yAxis: 200 }],
       },
     }],
@@ -232,7 +229,7 @@ function initLatencyChart() {
 
 function initTopoChart() {
   if (!topoChartRef.value) return
-  const chart = echarts.init(topoChartRef.value, 'dark')
+  const chart = echarts.init(topoChartRef.value)
 
   const gwData = [
     { name: 'GW-01', x: 150, y: 80, status: 'online', load: 34 },
@@ -252,24 +249,24 @@ function initTopoChart() {
     symbolSize: g.status === 'online' ? 24 : 18,
     itemStyle: {
       color: g.status === 'online'
-        ? g.load > 40 ? '#ff6b35' : '#00e676'
-        : '#555a6e',
+        ? g.load > 40 ? '#b86525' : '#2f7d57'
+        : '#9aa6b2',
       borderColor: g.status === 'online'
-        ? g.load > 40 ? '#ff6b35' : '#00e676'
-        : '#333',
+        ? g.load > 40 ? '#b86525' : '#2f7d57'
+        : '#c8d2dc',
       borderWidth: 2,
     },
-    label: { show: true, color: '#8b92a8', fontSize: 9, position: 'bottom' },
+    label: { show: true, color: '#7b8794', fontSize: 9, position: 'bottom' },
   }))
 
   // 星型连接 (所有节点连接到中心)
-  const centerNode = { name: 'Cloud', x: 250, y: 160, symbolSize: 32, itemStyle: { color: '#00d4ff', borderColor: '#00d4ff', borderWidth: 3 }, label: { show: true, color: '#00d4ff', fontSize: 10, fontWeight: 'bold', position: 'bottom' } }
+  const centerNode = { name: 'Cloud', x: 250, y: 160, symbolSize: 32, itemStyle: { color: '#256f8f', borderColor: '#256f8f', borderWidth: 3 }, label: { show: true, color: '#256f8f', fontSize: 10, fontWeight: 'bold', position: 'bottom' } }
   nodes.push(centerNode)
 
   const links = gwData.map(g => ({
     source: 'Cloud', target: g.name,
     lineStyle: {
-      color: g.status === 'online' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+      color: g.status === 'online' ? '#c8d2dc' : '#edf2f7',
       type: g.status === 'online' ? 'solid' : 'dashed',
       width: g.status === 'online' ? 1.5 : 0.8,
     },
@@ -373,17 +370,16 @@ onUnmounted(() => {
   flex: 1;
   background: var(--bg-panel);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 14px 16px;
   transition: border-color 0.2s;
 }
-.metric-card:hover { border-color: rgba(0,212,255,0.15); }
+.metric-card:hover { border-color: var(--border-active); }
 .metric-label {
-  font-size: 10px;
-  color: var(--text-dim);
-  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--text-secondary);
   margin-bottom: 6px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 .metric-value {
   font-family: var(--font-mono);
@@ -461,7 +457,7 @@ onUnmounted(() => {
 .resource-pct.danger { color: var(--accent-red); }
 .resource-bar {
   height: 4px;
-  background: rgba(255,255,255,0.06);
+  background: #edf2f7;
   border-radius: 2px;
   overflow: hidden;
 }
@@ -490,18 +486,18 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 8px;
   padding: 5px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border-color);
   font-size: 10px;
   font-family: var(--font-mono);
   animation: fade-in 0.2s ease;
 }
 .log-entry.level-error {
-  background: rgba(255,23,68,0.06);
+  background: var(--accent-red-dim);
   border-radius: 3px;
   padding-left: 6px;
 }
 .log-entry.level-warn {
-  background: rgba(255,107,53,0.04);
+  background: var(--accent-orange-dim);
   border-radius: 3px;
   padding-left: 6px;
 }
@@ -515,8 +511,8 @@ onUnmounted(() => {
   border-radius: 2px;
   flex-shrink: 0;
 }
-.log-level-tag.info { color: var(--accent-blue); background: rgba(0,212,255,0.08); }
-.log-level-tag.warn { color: var(--accent-orange); background: rgba(255,107,53,0.1); }
-.log-level-tag.error { color: var(--accent-red); background: rgba(255,23,68,0.1); }
+.log-level-tag.info { color: var(--accent-blue); background: var(--accent-blue-dim); }
+.log-level-tag.warn { color: var(--accent-orange); background: var(--accent-orange-dim); }
+.log-level-tag.error { color: var(--accent-red); background: var(--accent-red-dim); }
 .log-msg { color: var(--text-secondary); flex: 1; word-break: break-all; }
 </style>

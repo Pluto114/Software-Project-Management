@@ -21,7 +21,7 @@ async function main() {
     res.json({ service: 'control-service', status: 'ok' })
   })
 
-  app.post('/api/v1/control/command', (req, res) => ctrl.issueCommand(req, res))
+  app.post('/api/v1/control/command', (req, res) => void ctrl.issueCommand(req, res))
   app.get('/api/v1/control/status', (req, res) => ctrl.getStatus(req, res))
   app.get('/api/v1/control/override/status', (req, res) => ctrl.getOverrideStatus(req, res))
   app.post('/api/v1/control/override/clear', (req, res) => ctrl.clearOverride(req, res))
@@ -34,6 +34,7 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`\n[control-service] received ${signal}, shutting down...`)
+    await ctrl.close()
     server.close()
     process.exit(0)
   }
