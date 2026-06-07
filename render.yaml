@@ -1,0 +1,18 @@
+services:
+  - type: web
+    runtime: node
+    name: pluto114-spm-asset-service
+    rootDir: services/asset-service
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+
+  - type: web
+    runtime: docker
+    name: pluto114-spm-field-service
+    rootDir: services/field-service-java
+    plan: free
+    healthCheckPath: /health
+    autoDeployTrigger: commit
