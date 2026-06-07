@@ -635,6 +635,11 @@ onMounted(loadAll)
   gap: 12px;
 }
 
+.asset-main {
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
 .asset-side {
   overflow-y: auto;
 }
@@ -694,8 +699,8 @@ onMounted(loadAll)
 }
 
 .table-panel {
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: 310px;
   display: flex;
   flex-direction: column;
 }
@@ -834,10 +839,13 @@ onMounted(loadAll)
 }
 
 .table-wrap {
-  min-height: 0;
+  flex: 1;
+  min-height: 220px;
+  max-height: 360px;
   overflow: auto;
   border: 1px solid var(--border-color);
   border-radius: 8px;
+  background: #ffffff;
 }
 
 .asset-table {
@@ -855,6 +863,9 @@ onMounted(loadAll)
 }
 
 .asset-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 650;
@@ -1110,6 +1121,11 @@ onMounted(loadAll)
   .asset-layout {
     grid-template-columns: 1fr;
     overflow-y: auto;
+  }
+
+  .asset-main {
+    overflow: visible;
+    padding-right: 0;
   }
 
   .summary-grid {
