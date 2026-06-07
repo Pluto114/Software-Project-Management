@@ -114,19 +114,20 @@ function fail(res: Response, err: unknown): void {
 }
 
 function getContext(req: Request): RequestContext | null {
-  const role = String(req.header('X-Demo-Role') || '').trim() as Role
-  const username = String(req.header('X-Demo-User') || '').trim()
   const authorization = String(req.header('Authorization') || '')
-  const allowedBases = String(req.header('X-Demo-Bases') || '')
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean)
+  const matched = authorization.match(/^Bearer\s+demo-([a-z0-9_-]+)$/i)
+  const username = matched?.[1]?.toLowerCase()
+  const account = accounts.find(item => item.username === username)
 
-  if (!username || authorization !== `Bearer demo-${username}` || !['admin', 'manager', 'operator', 'analyst', 'ops'].includes(role)) {
+  if (!account) {
     return null
   }
 
-  return { username, role, allowedBases }
+  return {
+    username: account.username,
+    role: account.role,
+    allowedBases: account.allowedBases,
+  }
 }
 
 function publicUser(account: Account) {
