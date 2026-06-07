@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/health",
+      "destination": "https://pluto114-spm-asset-service.onrender.com/health"
+    },
+    {
       "source": "/api/v1/management/:path*",
       "destination": "https://pluto114-spm-asset-service.onrender.com/api/v1/management/:path*"
     },

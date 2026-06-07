@@ -60,6 +60,15 @@ public class FieldServiceApp {
       String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
       String path = cleanPath(exchange.getRequestURI());
 
+      if ("GET".equals(method) && "/".equals(path)) {
+        ok(exchange, obj(
+          "status", "ok",
+          "service", "field-service-java",
+          "message", "Aqua field operations API service. Open /health for health check or use the Vercel frontend for the web app."
+        ));
+        return;
+      }
+
       if ("GET".equals(method) && "/health".equals(path)) {
         ok(exchange, obj("status", "ok", "service", "field-service-java"));
         return;

@@ -253,6 +253,14 @@ async function main() {
   app.use(cors())
   app.use(express.json())
 
+  app.get('/', (_req, res) => {
+    res.json({
+      service: 'asset-service',
+      status: 'ok',
+      message: 'Aqua management API service. Open /health for health check or use the Vercel frontend for the web app.',
+    })
+  })
+
   app.get('/health', (_req, res) => {
     res.json({ service: 'asset-service', status: 'ok' })
   })
